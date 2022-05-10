@@ -4,9 +4,10 @@ __pycache__/
 *$py.class
 Sklearn.ipynb
 emotions_keras_micka.ipynb
-
+Notebook/
 
 sklearn
+h2o
 # C extensions
 *.so
 
