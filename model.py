@@ -47,7 +47,13 @@ class Users(Base):
         lg.warning('get_list_users : {Users.id}, {Users.first_name}')
         full_list = cls.query.join(Users).with_entities(Users.id, Users.first_name, Users.last_name, Users.username,  Users.password,  Users.fonction).all()
         return full_list
-    
+
+    @classmethod
+    def get_user(cls, Username, password):
+        lg.warning('get_list_users : {Users.id}, {Users.first_name}')
+        password_hash = password
+        user = cls.query.filter_by(username=Username, password=password_hash).first()
+        return user
     
 class Informations(Base):
     # lg.warning('Class Information')
