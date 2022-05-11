@@ -1,4 +1,3 @@
-import os
 import psycopg2
 import sqlalchemy
 from sqlalchemy import create_engine
@@ -6,18 +5,17 @@ from sqlalchemy import Column, String, Integer, Float, Date, DateTime, ForeignKe
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from dotenv import load_dotenv
 import logging as lg
+from dotenv import load_dotenv
+import os
+
+import streamlit_authenticator as stauth
+
 load_dotenv(override=True)
 
-# Database initialization
-# lg.warning('Connection à la base de donnée')
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-engine = create_engine(SQLALCHEMY_DATABASE_URI)
-Sessions = sessionmaker(bind=engine)
-db = Sessions()
 
 Base = declarative_base()
 
@@ -32,15 +30,15 @@ class Users(Base):
     password = Column(String)
     fonction = Column(String)
     
-    def save_to_db(self):
-        lg.warning('Class Users save')
-        db.session.add(self)
-        db.session.commit()
+    # def save_to_db(self):
+    #     lg.warning('Class Users save')
+    #     db.session.add(self)
+    #     db.session.commit()
         
-    def delete_from_db(self):
-        lg.warning('Class Users delete')
-        db.session.delete(self)
-        db.session.commit()
+    # def delete_from_db(self):
+    #     lg.warning('Class Users delete')
+    #     db.session.delete(self)
+    #     db.session.commit()
         
     @classmethod
     def get_list_users(cls):
@@ -51,7 +49,7 @@ class Users(Base):
     @classmethod
     def get_user(cls, Username, password):
         lg.warning('get_list_users : {Users.id}, {Users.first_name}')
-        password_hash = password
+        password_hash = stauth.Hasher(password).generate()
         user = cls.query.filter_by(username=Username, password=password_hash).first()
         return user
     
@@ -64,15 +62,15 @@ class Informations(Base):
     text_informations = Column(String)
     user_id = Column(Integer, ForeignKey('users.id_user'))
     
-    def save_to_db(self):
-        lg.warning('Class Informations save')
-        db.session.add(self)
-        db.session.commit()
+    # def save_to_db(self):
+    #     lg.warning('Class Informations save')
+    #     db.session.add(self)
+    #     db.session.commit()
         
-    def delete_from_db(self):
-        lg.warning('Class Informations delete')
-        db.session.delete(self)
-        db.session.commit()
+    # def delete_from_db(self):
+    #     lg.warning('Class Informations delete')
+    #     db.session.delete(self)
+    #     db.session.commit()
         
     @classmethod
     def get_list_informations(cls):
