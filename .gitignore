@@ -7,10 +7,12 @@ emotions_keras_micka.ipynb
 Notebook/
 michelle
 
-
 mlruns/
 notebook/
 data/
+results/
+.env
+emotion_diagramme.svg
 
 sklearn
 h2o
