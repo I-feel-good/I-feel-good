@@ -29,9 +29,20 @@ if selected == 'Home':
     st.balloons()
     
 elif (selected == 'Patient') & (connected==True):
-    st.title('coucou Patient')
-    if st.button('Add Patient'):
-        st.write('Why hello there')
+    st.title('List des Patients')
+    if st.button('Ajouter un Patient'):
+        first_name = st.text_input('Prénom')
+        last_name = st.text_input('Nom')
+        username = st.text_input('Surnon')
+        password = st.text_input('Mot de passe')
+        fonction = st.selectbox(
+     'Fonction',
+     ('Patient', 'Docteur'))
+
+st.write('You selected:', option)
+        st.button('Enregistrer')
+    elif st.button('Liste des Patient'):
+        pass
     else:
         st.write('Goodbye')
     
