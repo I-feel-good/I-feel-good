@@ -13,6 +13,8 @@ import streamlit_authenticator as stauth
 
 load_dotenv(override=True)
 
+lg.warning('Connection à la base de donnée')
+
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
