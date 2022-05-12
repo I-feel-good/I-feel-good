@@ -15,6 +15,7 @@ load_dotenv(override=True)
 
 lg.info('Connection à la base de donnée')
 
+# SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL1").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
