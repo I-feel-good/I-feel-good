@@ -9,8 +9,11 @@ from dotenv import load_dotenv
 import os
 from st_aggrid import AgGrid
 import pandas as pd
-
+import requests
 from st_aggrid.grid_options_builder import GridOptionsBuilder
+from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
+from streamlit_lottie import st_lottie
+import time
 
 load_dotenv(override=True)
 
@@ -21,6 +24,23 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
 Sessions = sessionmaker(bind=engine)
 db = Sessions()
+
+hide_menu_style = """
+    <style>
+    #MainMenu {visibility : hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """
+
+st.markdown(hide_menu_style, unsafe_allow_html=True)
+
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code !=200:
+        return None
+    return r.json()
+    
+    
 
 def check_password():
     """Returns `True` if the user had a correct password."""
@@ -42,6 +62,8 @@ def check_password():
             st.session_state['user_name'] = user.username
             del st.session_state["password"]  # don't store password
             # del st.session_state["username"]
+
+
         else:
             st.session_state["password_correct"] = False
             
@@ -85,8 +107,10 @@ with st.sidebar:
         selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 if selected == 'Home':
-    st.title('coucou home')
-    st.balloons()
+    st.title('Bienvenur sur notre application du bonheur')
+    url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
+    res_json = load_lottieurl(url)
+    st_lottie(res_json)
     
 elif (selected == 'Patient'):
     st.title('Patients')
@@ -111,13 +135,24 @@ elif (selected == 'Patient'):
              sql = liste_des_patients,
              con = engine
         )
-        AgGrid(df)
-        # gb = GridOptionsBuilder.from_dataframe(df_test)
-        # gb.configure_pagination()
-        # gridOptions = gb.build()
-        
-
-        st.error('pas bon')
+        gb = GridOptionsBuilder.from_dataframe(df)
+        gb.configure_pagination(enabled=True)
+        gb.configure_side_bar()
+        gb.configure_default_column(editable=True,groupable=True, value=True, enableRowGroup=True)
+        gb.configure_selection(selection_mode='multiple', use_checkbox=True, groupSelectsChildren=True)
+        gridOptions = gb.build()
+        grid_response = AgGrid(df, 
+                            gridOptions=gridOptions,
+                            enable_enterprise_modules=True,
+                            fit_columns_on_grid_load= False,
+                            width= '100%',
+                            update_mode=GridUpdateMode.SELECTION_CHANGED,
+                            height=500,
+                            allow_unsafe_jscode=True,
+                            theme='light'
+                            )
+        sel_row =grid_response['selected_rows']
+        st.write(sel_row)
     
 elif (selected == 'Information'):
     st.title('Information')
@@ -178,6 +213,9 @@ elif (selected == 'Sign-up'):# & (connected==False):
 elif (selected == 'Logout'):
     st.title('Click to log out')
     logout = st.button('Log out')
+    url = 'https://assets2.lottiefiles.com/packages/lf20_kd5rzej5.json'
+    res_json = load_lottieurl(url)
+    st_lottie(res_json)
     if logout:
         st.session_state['password_correct'] = False
         del st.session_state['fonction']

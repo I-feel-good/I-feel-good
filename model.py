@@ -46,15 +46,20 @@ class Users(Base):
         
     @classmethod
     def get_list_users_patient(cls):
-        lg.info('get_list_users : {Users.id}, {Users.first_name}')
-        fonction = 'patient'
-        user = cls.query.filter_by(fonction=fonction).all()
-        return  user
+        lg.info('get_list_users_patient :')
+        list_users = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username]).where(Users.fonction == 'patient')
+        return  list_users
+    
+    @classmethod
+    def get_list_users_docteur(cls):
+        lg.info('get_list_users_docteur :')
+        list_users = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username,  Users.password,  Users.fonction]).where(Users.fonction == 'docteur')
+        return  list_users
       
     @classmethod
     def get_list_users(cls):
         lg.warning('get_list_users : {Users.id}, {Users.first_name}')
-        full_list = db.query.join(Users).with_entities(Users.id, Users.first_name, Users.last_name, Users.username,  Users.password,  Users.fonction).all()
+        full_list = db.query.join(Users).with_entities(Users.id_user, Users.first_name, Users.last_name, Users.username,  Users.password,  Users.fonction).all()
         return full_list
 
     @classmethod
