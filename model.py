@@ -11,7 +11,7 @@ import logging as lg
 load_dotenv(override=True)
 
 # Database initialization
-# lg.warning('Connection à la base de donnée')
+lg.warning('Connection à la base de donnée')
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -34,13 +34,13 @@ class Users(Base):
     
     def save_to_db(self):
         lg.warning('Class Users save')
-        db.session.add(self)
-        db.session.commit()
+        db.add(self)
+        db.commit()
         
     def delete_from_db(self):
         lg.warning('Class Users delete')
-        db.session.delete(self)
-        db.session.commit()
+        db.delete(self)
+        db.commit()
         
     @classmethod
     def get_list_users(cls):
@@ -66,13 +66,13 @@ class Informations(Base):
     
     def save_to_db(self):
         lg.warning('Class Informations save')
-        db.session.add(self)
-        db.session.commit()
+        db.add(self)
+        db.commit()
         
     def delete_from_db(self):
         lg.warning('Class Informations delete')
-        db.session.delete(self)
-        db.session.commit()
+        db.delete(self)
+        db.commit()
         
     @classmethod
     def get_list_informations(cls):

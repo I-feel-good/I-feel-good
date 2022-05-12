@@ -3,14 +3,12 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 import logging as lg
 
-m = st.markdown("""
-<style>
-div.stButton > button:first-child {
-    background-color: primary;
-}
-</style>""", unsafe_allow_html=True)
-
-st.get_option("theme.primaryColor")
+# SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
+# engine = create_engine(SQLALCHEMY_DATABASE_URI)
+# # lg.warning(engine)
+# lg.warning("START")
+# Sessions = sessionmaker(bind=engine)
+# db = Sessions()
 
 with st.sidebar:
     connected = True
@@ -27,27 +25,46 @@ if selected == 'Home':
     
 elif (selected == 'Patient') & (connected==True):
     st.title('List des Patients')
-    if st.button('Ajouter un Patient'):
-        first_name = st.text_input('Prénom')
-        last_name = st.text_input('Nom')
-        username = st.text_input('Surnon')
-        password = st.text_input('Mot de passe')
-        fonction = st.selectbox(
-     'Fonction',
-     ('Patient', 'Docteur'))
+    fonction = st.selectbox('Fonction',('add_Patient', 'Docteur'))
 
-st.write('You selected:', option)
-        st.button('Enregistrer')
-    elif st.button('Liste des Patient'):
-        pass
-    else:
-        st.write('Goodbye')
+    if fonction == "add_Patient":
+        with st.form("form1"):
+            first_name = st.text_input('Saisir le prénom')
+            last_name = st.text_input('Saisir le Nom')
+            username = st.text_input('Saisir le Surnom')
+            password = st.text_input('Saisir le Mot de passe')
+            
+            fonction = st.selectbox('Fonction',('Patient', 'Docteur'))
+            submit_button1 = st.form_submit_button('Submit')
+        
+        if submit_button1:
+            user = Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction)
+            os.system('cls')
+            print(user.first_name)
+            user.save_to_db()
+            
+            # db.session.add(user)
+            # db.commit()
+            st.success("oklm")
+            st.success(username)        
+    elif fonction == "Docteur":
+        st.error('pas bon')
+
     
     
 elif (selected == 'Information') & (connected==True):
     st.title('coucou Information')
     if st.button('Add Information'):
-            st.write('Why hello there')
+        form = st.form("my_st")
+        form.slider("Inside the st")
+        form.slider("Outside the st")
+
+        # Now add a submit button to the st:
+        # form.form_submit_button("Submit")
+        with form.form_submit_button("Submit"):
+            st.write("TROU DE BALL ")
+            print('ffsffffsffdsffffffffffffffffffffffffffffffffffffffffffffffffffffff')
+            st.stop()
     else:
         st.write('Goodbye')
     
@@ -56,3 +73,5 @@ elif (selected == 'Sign-in') & (connected==False):
     
 elif (selected == 'Sign-up') & (connected==False):
     st.title("Enregistrer tete d'alien")
+    
+    
