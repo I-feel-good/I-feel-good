@@ -51,6 +51,12 @@ class Users(Base):
         return  list_users
     
     @classmethod
+    def get_list_by_user(cls,username):
+        lg.info('get_list_users_patient :')
+        list_users = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name,  Users.username, Users.password ]).where(Users.fonction == 'patient',Users.username == username)
+        return  list_users
+    
+    @classmethod
     def get_list_users_docteur(cls):
         lg.info('get_list_users_docteur :')
         list_users = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username,  Users.password,  Users.fonction]).where(Users.fonction == 'docteur')
