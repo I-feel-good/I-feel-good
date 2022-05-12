@@ -76,10 +76,10 @@ with st.sidebar:
         connected = True
 
     if connected:
-        lg.warning(f'Connection : {connected}')
+        lg.warning('Connexion : {}'.format("connected"))
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
     else:
-        lg.warning(f'Connection : {connected}')
+        lg.warning('Connexion : {}'.format("disconnected"))
         selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 
@@ -117,6 +117,8 @@ elif (selected == 'Sign-in'):# & (connected==False):
     
 elif (selected == 'Sign-up'):# & (connected==False):
     st.title("Sign up")
+    last_name = st.text_input('Last name')
+    first_name = st.text_input('First name')
     username = st.text_input('Username')
     password = st.text_input('Password', type='password')
     confirm_password = st.text_input('Confirm password', type='password')
@@ -125,9 +127,10 @@ elif (selected == 'Sign-up'):# & (connected==False):
     if signup:
         if (password == confirm_password) and username:
             hashed_password = stauth.Hasher(password).generate()
-            new_user = Users(username=username, password= password, fonction='patient')
-            db.add(new_user)
-            db.commit()
+            new_user = Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient')
+            new_user.save_to_db()
+            # db.add(new_user)
+            # db.commit()
             st.success('You have successfully registered. You can now sign-in.')
 
 elif (selected == 'Logout'):
