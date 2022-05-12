@@ -44,7 +44,25 @@ def load_lottieurl(url: str):
         return None
     return r.json()
     
-    
+def data_grid(df):
+    gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_pagination(enabled=True)
+    gb.configure_side_bar()
+    gb.configure_default_column(editable=True,groupable=True, value=True, enableRowGroup=True)
+    gb.configure_selection(selection_mode='multiple', use_checkbox=True, groupSelectsChildren=True)
+    gridOptions = gb.build()
+    grid_response = AgGrid(df, 
+                    gridOptions=gridOptions,
+                    enable_enterprise_modules=True,
+                    fit_columns_on_grid_load= False,
+                    width= '100%',
+                    update_mode=GridUpdateMode.SELECTION_CHANGED,
+                    height=500,
+                    allow_unsafe_jscode=True,
+                    theme='light'
+                    )
+    sel_row =grid_response['selected_rows']
+    return df, sel_row
 
 def check_password():
     """Returns `True` if the user had a correct password."""
@@ -118,8 +136,10 @@ if selected == 'Home':
     
 elif (selected == 'Patient'):
     st.title('Patients')
-
-    fonction = st.selectbox('Fonction',('Ajouter un patient', 'Liste des patients'))
+    if st.session_state['fonction'] == 'patient':
+        fonction = st.selectbox('Fonction',(['Liste des patients']))
+    elif st.session_state['fonction'] == 'docteur':
+        fonction = st.selectbox('Fonction',('Ajouter un patient', 'Liste des patients'))
 
     if fonction == "Ajouter un patient":
         with st.form("form1"):
@@ -134,29 +154,29 @@ elif (selected == 'Patient'):
             Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction).save_to_db()
             st.success(f' Bienvenue  {username}')        
     elif fonction == "Liste des patients":
-        liste_des_patients = Users.get_list_users_patient()
-        df = pd.read_sql_query(
-             sql = liste_des_patients,
-             con = engine
-        )
-        gb = GridOptionsBuilder.from_dataframe(df)
-        gb.configure_pagination(enabled=True)
-        gb.configure_side_bar()
-        gb.configure_default_column(editable=True,groupable=True, value=True, enableRowGroup=True)
-        gb.configure_selection(selection_mode='multiple', use_checkbox=True, groupSelectsChildren=True)
-        gridOptions = gb.build()
-        grid_response = AgGrid(df, 
-                            gridOptions=gridOptions,
-                            enable_enterprise_modules=True,
-                            fit_columns_on_grid_load= False,
-                            width= '100%',
-                            update_mode=GridUpdateMode.SELECTION_CHANGED,
-                            height=500,
-                            allow_unsafe_jscode=True,
-                            theme='light'
-                            )
-        sel_row =grid_response['selected_rows']
-        st.write(sel_row)
+        if st.session_state['fonction'] == 'patient':
+            liste_des_patients = Users.get_list_by_user(st.session_state['user_name'])
+            df = pd.read_sql_query(
+                sql = liste_des_patients,
+                con = engine
+            )
+            df, sel_row = data_grid(df)
+            col1, col2= st.columns(2)
+            col1.button('Delete')
+            col2.button('Save')
+            st.write(sel_row)
+            # pass get_list_by_user""
+        elif st.session_state['fonction'] == 'docteur':
+            liste_des_patients = Users.get_list_users_patient()
+            df = pd.read_sql_query(
+                sql = liste_des_patients,
+                con = engine
+            )
+            df, sel_row = data_grid(df)
+            col1, col2= st.columns(2)
+            col1.button('Delete')
+            col2.button('Save')
+            st.write(sel_row)
     
 elif (selected == 'Information'):
     st.title('Information')
