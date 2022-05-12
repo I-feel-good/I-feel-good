@@ -10,23 +10,17 @@ import os
 from st_aggrid import AgGrid
 import pandas as pd
 
+from st_aggrid.grid_options_builder import GridOptionsBuilder
+
 load_dotenv(override=True)
 
 # Database initialization
-# lg.warning('Connection à la base de donnée')
-SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
+# lg.info('Connection à la base de donnée')
+SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL1").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
 Sessions = sessionmaker(bind=engine)
 db = Sessions()
-
-
-# SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
-# engine = create_engine(SQLALCHEMY_DATABASE_URI)
-# # lg.warning(engine)
-# lg.warning("START")
-# Sessions = sessionmaker(bind=engine)
-# db = Sessions()
 
 def check_password():
     """Returns `True` if the user had a correct password."""
@@ -78,6 +72,7 @@ with st.sidebar:
     else:
         connected = True
 
+
     if (connected) and st.session_state['fonction'] == 'docteur':
         lg.warning('Connection : {}'.format("connected as a doctor"))
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
@@ -86,46 +81,49 @@ with st.sidebar:
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
     else:
         lg.warning('Connection : {}'.format("disconnected"))
-        selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
+        selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 if selected == 'Home':
     st.title('coucou home')
     st.balloons()
     
 elif (selected == 'Patient'):
+    st.title('Patients')
 
-    if st.session_state['fonction'] == 'docteur':
-        st.title('List des Patients')
+    fonction = st.selectbox('Fonction',('Ajouter un patient', 'Liste des patients'))
 
-        fonction = st.selectbox('Fonction',('add_Patient', 'Docteur'))
+    if fonction == "Ajouter un patient":
+        with st.form("form1"):
+            first_name = st.text_input('Saisir le prénom')
+            last_name = st.text_input('Saisir le Nom')
+            username = st.text_input('Saisir le Surnom')
+            password = st.text_input('Saisir le Mot de passe')
+            fonction = st.selectbox('Fonction',('Patient', 'Docteur'))
+            submit_add_patient = st.form_submit_button('Ajouter')
+        
+        if submit_add_patient:
+            Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction).save_to_db()
+            st.success(f' Bienvenue  {username}')        
+    elif fonction == "Liste des patients":
+        liste_des_patients = Users.get_list_users_patient()
+        df = pd.read_sql_query(
+             sql = liste_des_patients,
+             con = engine
+        )
+        AgGrid(df)
+        # gb = GridOptionsBuilder.from_dataframe(df_test)
+        # gb.configure_pagination()
+        # gridOptions = gb.build()
+        
 
-        if fonction == "add_Patient":
-            with st.form("form1"):
-                first_name = st.text_input('Saisir le prénom')
-                last_name = st.text_input('Saisir le Nom')
-                username = st.text_input('Saisir le Surnom')
-                password = st.text_input('Saisir le Mot de passe')
-                
-                fonction = st.selectbox('Fonction',('patient', 'docteur'))
-                submit_button1 = st.form_submit_button('Submit')
-            
-            if submit_button1:
-                user = Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction)
-                os.system('cls')
-                print(user.first_name)
-                user.save_to_db()
-                
-                # db.session.add(user)
-                # db.commit()
-                st.success("oklm")
-                st.success(username)        
-        elif fonction == "Docteur":
-            st.error('pas bon')
+        st.error('pas bon')
     
 elif (selected == 'Information'):
-    st.title('coucou Information')
-    if st.button('Add Information'):
+    st.title('Information')
+    fonction = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
+    
+    if fonction == "Ajouter une informations":
         form = st.form("my_st")
         form.slider("Inside the st")
         form.slider("Outside the st")
@@ -134,10 +132,14 @@ elif (selected == 'Information'):
         # form.form_submit_button("Submit")
         with form.form_submit_button("Submit"):
             st.write("TROU DE BALL ")
-            print('ffsffffsffdsffffffffffffffffffffffffffffffffffffffffffffffffffffff')
             st.stop()
-    else:
-        st.write('Goodbye')
+    elif fonction == 'Liste des informations':
+        query_full_informations = Informations.get_list_informations()
+        df = pd.read_sql_query(
+             sql = query_full_informations,
+             con = engine
+        )
+        AgGrid(df)
 
 elif (selected == 'Dashboard'):
     if st.session_state['fonction'] == 'docteur':
@@ -170,10 +172,7 @@ elif (selected == 'Sign-up'):# & (connected==False):
     if signup:
         if (password == confirm_password) and username:
             hashed_password = stauth.Hasher(password).generate()
-            new_user = Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient')
-            new_user.save_to_db()
-            # db.add(new_user)
-            # db.commit()
+            Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient').save_to_db()
             st.success('You have successfully registered. You can now sign-in.')
 
 elif (selected == 'Logout'):
