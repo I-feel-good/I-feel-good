@@ -13,6 +13,8 @@ import streamlit_authenticator as stauth
 
 load_dotenv(override=True)
 
+lg.warning('Connection à la base de donnée')
+
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -29,16 +31,17 @@ class Users(Base):
     username = Column(String)
     password = Column(String)
     fonction = Column(String)
-    
-    # def save_to_db(self):
-    #     lg.warning('Class Users save')
-    #     db.session.add(self)
-    #     db.session.commit()
+
+    def save_to_db(self):
+        lg.warning('Class Users save')
+        db.add(self)
+        db.commit()
         
-    # def delete_from_db(self):
-    #     lg.warning('Class Users delete')
-    #     db.session.delete(self)
-    #     db.session.commit()
+    def delete_from_db(self):
+        lg.warning('Class Users delete')
+        db.delete(self)
+        db.commit()
+
         
     @classmethod
     def get_list_users(cls):
@@ -62,15 +65,16 @@ class Informations(Base):
     text_informations = Column(String)
     user_id = Column(Integer, ForeignKey('users.id_user'))
     
-    # def save_to_db(self):
-    #     lg.warning('Class Informations save')
-    #     db.session.add(self)
-    #     db.session.commit()
+    def save_to_db(self):
+        lg.warning('Class Informations save')
+        db.add(self)
+        db.commit()
         
-    # def delete_from_db(self):
-    #     lg.warning('Class Informations delete')
-    #     db.session.delete(self)
-    #     db.session.commit()
+    def delete_from_db(self):
+        lg.warning('Class Informations delete')
+        db.delete(self)
+        db.commit()
+
         
     @classmethod
     def get_list_informations(cls):
