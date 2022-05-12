@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 import os
 from st_aggrid import AgGrid
 import pandas as pd
+
 from st_aggrid.grid_options_builder import GridOptionsBuilder
+
 load_dotenv(override=True)
 
 # Database initialization
@@ -25,18 +27,21 @@ def check_password():
 
     def password_entered():
         """Checks whether a password and username entered by the user is correct."""
-        user = db.query(Users).filter_by(username=st.session_state['username'],
-                                         password=st.session_state['password']).first()
+        # user = db.query(Users).filter_by(username=st.session_state['username'],
+        #                                  password=st.session_state['password']).first()
+        user = Users.get_user(st.session_state['username'])
         if user == None:
             st.session_state["password_correct"] = False
         elif (
              (user.username == st.session_state["username"]) and
              (user.password == st.session_state["password"])#stauth.Hasher(st.session_state["password"]).generate()
            ):
-            st.success(user.username == st.session_state["username"])
+            st.success("You have successfully logged in.")
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # don't store username + password
-            del st.session_state["username"]
+            st.session_state['fonction'] = user.fonction
+            st.session_state['user_name'] = user.username
+            del st.session_state["password"]  # don't store password
+            # del st.session_state["username"]
         else:
             st.session_state["password_correct"] = False
             
@@ -67,11 +72,16 @@ with st.sidebar:
     else:
         connected = True
 
-    if connected:
-        lg.info(f'Connection : {connected}')
-        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
+
+    if (connected) and st.session_state['fonction'] == 'docteur':
+        lg.warning('Connection : {}'.format("connected as a doctor"))
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
+    elif (connected) and st.session_state['fonction'] == 'patient':
+        lg.warning('Connection : {}'.format("connected as a patient"))
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
     else:
-        lg.info(f'Connection : {connected}')
+        lg.warning('Connection : {}'.format("disconnected"))
+
         selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 if selected == 'Home':
@@ -131,6 +141,20 @@ elif (selected == 'Information'):
         )
         AgGrid(df)
 
+elif (selected == 'Dashboard'):
+    if st.session_state['fonction'] == 'docteur':
+        pass
+    elif st.session_state['fonction'] == 'patient':
+        user = Users.get_user(st.session_state['user_name'])
+        query_full_informations_user = Informations.get_list_informations_by_users(user)
+        df = pd.read_sql_query(
+             sql = query_full_informations_user,
+             con = engine
+             )
+        AgGrid(df)
+
+        
+ 
 elif (selected == 'Sign-in'):# & (connected==False):  
     st.title("Login")
     if check_password():
@@ -138,6 +162,8 @@ elif (selected == 'Sign-in'):# & (connected==False):
     
 elif (selected == 'Sign-up'):# & (connected==False):
     st.title("Sign up")
+    last_name = st.text_input('Last name')
+    first_name = st.text_input('First name')
     username = st.text_input('Username')
     password = st.text_input('Password', type='password')
     confirm_password = st.text_input('Confirm password', type='password')
@@ -146,7 +172,7 @@ elif (selected == 'Sign-up'):# & (connected==False):
     if signup:
         if (password == confirm_password) and username:
             hashed_password = stauth.Hasher(password).generate()
-            Users(username=username, password= hashed_password, fonction='patient').save_to_db()
+            Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient').save_to_db()
             st.success('You have successfully registered. You can now sign-in.')
 
 elif (selected == 'Logout'):
@@ -154,5 +180,7 @@ elif (selected == 'Logout'):
     logout = st.button('Log out')
     if logout:
         st.session_state['password_correct'] = False
+        del st.session_state['fonction']
+        del st.session_state['user_name']
         st.experimental_rerun()
 

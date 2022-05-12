@@ -27,11 +27,12 @@ class Users(Base):
     lg.info('Class Users')
     __tablename__ = 'users'
     id_user = Column(Integer, primary_key=True, autoincrement=True)
-    first_name = Column(String, nullable= False )
-    last_name = Column(String, nullable= False )
-    username = Column(String, unique=True,nullable= False )
-    password = Column(String, nullable= False )
-    fonction = Column(String, nullable= False )
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    fonction = Column(String, nullable=False)
+
     
     def save_to_db(self):
         lg.info('Class Users save')
@@ -42,7 +43,6 @@ class Users(Base):
         lg.info('Class Users delete')
         db.delete(self)
         db.commit()
-
         
     @classmethod
     def get_list_users_patient(cls):
@@ -50,13 +50,20 @@ class Users(Base):
         fonction = 'patient'
         user = cls.query.filter_by(fonction=fonction).all()
         return  user
+      
+    @classmethod
+    def get_list_users(cls):
+        lg.warning('get_list_users : {Users.id}, {Users.first_name}')
+        full_list = db.query.join(Users).with_entities(Users.id, Users.first_name, Users.last_name, Users.username,  Users.password,  Users.fonction).all()
+        return full_list
 
     @classmethod
-    def get_user(cls, Username, password):
-        lg.info('get_list_users : {Users.id}, {Users.first_name}')
-        password_hash = stauth.Hasher(password).generate()
-        user = cls.query.filter_by(username=Username, password=password_hash).first()
+    def get_user(cls, Username):#, password
+        lg.warning('get_list_users : {Users.id}, {Users.first_name}')
+        # password_hash = stauth.Hasher(password).generate()
+        user = db.query(Users).filter_by(username=Username).first()#, password=password
         return user
+
     
 class Informations(Base):
     lg.info('Class Informations')
@@ -92,10 +99,15 @@ class Informations(Base):
         return full_list
 
     @classmethod
-    def get_list_informations_by_users(cls):
-        full_list = cls.query.join(Users).with_entities(Informations.id_informations, Informations.dateofcreation, 
-                                                        Informations.last_updated, Informations.text_informations,  
-                                                        Informations.user_id).all()
+    def get_list_informations_by_users(cls, user):
+        full_list = sqlalchemy.select([Users.first_name,
+                                       Users.last_name,
+                                       Users.username,
+                                       Informations.dateofcreation,
+                                       Informations.last_updated, 
+                                       Informations.emotion,
+                                       Informations.text
+                                     ]).filter_by(username=user.username)
         return full_list    
         
 # Function to create db and populate it
