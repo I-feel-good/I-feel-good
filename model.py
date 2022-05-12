@@ -17,7 +17,9 @@ lg.warning('Connection à la base de donnée')
 
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
-
+engine = create_engine(SQLALCHEMY_DATABASE_URI)
+Sessions = sessionmaker(bind=engine)
+db = Sessions()
 
 Base = declarative_base()
 
@@ -26,12 +28,12 @@ class Users(Base):
     lg.warning('UsersClass Users')
     __tablename__ = 'users'
     id_user = Column(Integer, primary_key=True, autoincrement=True)
-    first_name = Column(String, nullable=True)
-    last_name = Column(String, nullable=True)
-    username = Column(String)
-    password = Column(String)
-    fonction = Column(String)
-
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    fonction = Column(String, nullable=False)
+    
     def save_to_db(self):
         lg.warning('Class Users save')
         db.add(self)
@@ -41,7 +43,6 @@ class Users(Base):
         lg.warning('Class Users delete')
         db.delete(self)
         db.commit()
-
         
     @classmethod
     def get_list_users(cls):
@@ -74,7 +75,6 @@ class Informations(Base):
         lg.warning('Class Informations delete')
         db.delete(self)
         db.commit()
-
         
     @classmethod
     def get_list_informations(cls):
