@@ -7,6 +7,8 @@ from streamlit_option_menu import option_menu
 import logging as lg
 from dotenv import load_dotenv
 import os
+from st_aggrid import AgGrid
+import pandas as pd
 
 load_dotenv(override=True)
 
@@ -31,8 +33,9 @@ def check_password():
 
     def password_entered():
         """Checks whether a password and username entered by the user is correct."""
-        user = db.query(Users).filter_by(username=st.session_state['username'],
-                                         password=st.session_state['password']).first()
+        # user = db.query(Users).filter_by(username=st.session_state['username'],
+        #                                  password=st.session_state['password']).first()
+        user = Users.get_user(st.session_state['username'])
         if user == None:
             st.session_state["password_correct"] = False
         elif (
@@ -42,8 +45,9 @@ def check_password():
             st.success("You have successfully logged in.")
             st.session_state["password_correct"] = True
             st.session_state['fonction'] = user.fonction
-            del st.session_state["password"]  # don't store username + password
-            del st.session_state["username"]
+            st.session_state['user_name'] = user.username
+            del st.session_state["password"]  # don't store password
+            # del st.session_state["username"]
         else:
             st.session_state["password_correct"] = False
             
@@ -76,10 +80,10 @@ with st.sidebar:
 
     if (connected) and st.session_state['fonction'] == 'docteur':
         lg.warning('Connection : {}'.format("connected as a doctor"))
-        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
     elif (connected) and st.session_state['fonction'] == 'patient':
         lg.warning('Connection : {}'.format("connected as a patient"))
-        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
     else:
         lg.warning('Connection : {}'.format("disconnected"))
         selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
@@ -103,7 +107,7 @@ elif (selected == 'Patient'):
                 username = st.text_input('Saisir le Surnom')
                 password = st.text_input('Saisir le Mot de passe')
                 
-                fonction = st.selectbox('Fonction',('Patient', 'Docteur'))
+                fonction = st.selectbox('Fonction',('patient', 'docteur'))
                 submit_button1 = st.form_submit_button('Submit')
             
             if submit_button1:
@@ -135,6 +139,20 @@ elif (selected == 'Information'):
     else:
         st.write('Goodbye')
 
+elif (selected == 'Dashboard'):
+    if st.session_state['fonction'] == 'docteur':
+        pass
+    elif st.session_state['fonction'] == 'patient':
+        user = Users.get_user(st.session_state['user_name'])
+        query_full_informations_user = Informations.get_list_informations_by_users(user)
+        df = pd.read_sql_query(
+             sql = query_full_informations_user,
+             con = engine
+             )
+        AgGrid(df)
+
+        
+ 
 elif (selected == 'Sign-in'):# & (connected==False):  
     st.title("Login")
     if check_password():
@@ -163,5 +181,7 @@ elif (selected == 'Logout'):
     logout = st.button('Log out')
     if logout:
         st.session_state['password_correct'] = False
+        del st.session_state['fonction']
+        del st.session_state['user_name']
         st.experimental_rerun()
 
