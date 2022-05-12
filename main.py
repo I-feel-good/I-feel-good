@@ -10,11 +10,15 @@ import os
 from st_aggrid import AgGrid
 import pandas as pd
 
+import plotly.express as px
+import plotly.graph_objects as go
+
 load_dotenv(override=True)
 
 # Database initialization
 # lg.warning('Connection à la base de donnée')
-SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
+# SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
+SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL1").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
 Sessions = sessionmaker(bind=engine)
@@ -149,9 +153,21 @@ elif (selected == 'Dashboard'):
              sql = query_full_informations_user,
              con = engine
              )
-        AgGrid(df)
-
-        
+        # AgGrid(df)
+        # st.info(dict(values=[df['first_name']]))
+        df = df.head()
+        fig = go.Figure(data=go.Table(
+                            header=dict(values=list([df[['first_name']].columns]),
+                            fill_color = '#ffee22',
+                            align='center'),
+                            cells=dict(values=[df['first_name']],
+                            fill_color="#eeeeee",
+                            align='left')
+                            ))
+        # fig.update_layout(margin=dict(l=0,r=0,t=0,b=0))
+#         st.write(fig)
+# #,df.last_name,df.username,df.dateofcreation,
+#df.last_updated,df.emotion,df.text
  
 elif (selected == 'Sign-in'):# & (connected==False):  
     st.title("Login")
@@ -170,10 +186,7 @@ elif (selected == 'Sign-up'):# & (connected==False):
     if signup:
         if (password == confirm_password) and username:
             hashed_password = stauth.Hasher(password).generate()
-            new_user = Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient')
-            new_user.save_to_db()
-            # db.add(new_user)
-            # db.commit()
+            Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient').save_to_db()
             st.success('You have successfully registered. You can now sign-in.')
 
 elif (selected == 'Logout'):
