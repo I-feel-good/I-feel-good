@@ -1,19 +1,19 @@
+import os
 import psycopg2
 import sqlalchemy
+import pandas as pd
+import logging as lg
+import streamlit_authenticator as stauth
+
 from sqlalchemy import create_engine
 from sqlalchemy import Column, String, Integer, Float, Date, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
-import logging as lg
 from dotenv import load_dotenv
-import os
-
-import streamlit_authenticator as stauth
 
 load_dotenv(override=True)
 
-lg.warning('Connection à la base de donnée')
+lg.info('Connection à la base de donnée')
 
 # SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL1").replace('postgres://','postgresql://')
@@ -24,9 +24,8 @@ db = Sessions()
 
 Base = declarative_base()
 
-
 class Users(Base):
-    lg.warning('UsersClass Users')
+    lg.info('Class Users')
     __tablename__ = 'users'
     id_user = Column(Integer, primary_key=True, autoincrement=True)
     first_name = Column(String, nullable=False)
@@ -34,17 +33,25 @@ class Users(Base):
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     fonction = Column(String, nullable=False)
+
     
     def save_to_db(self):
-        lg.warning('Class Users save')
+        lg.info('Class Users save')
         db.add(self)
         db.commit()
         
     def delete_from_db(self):
-        lg.warning('Class Users delete')
+        lg.info('Class Users delete')
         db.delete(self)
         db.commit()
         
+    @classmethod
+    def get_list_users_patient(cls):
+        lg.info('get_list_users : {Users.id}, {Users.first_name}')
+        fonction = 'patient'
+        user = cls.query.filter_by(fonction=fonction).all()
+        return  user
+      
     @classmethod
     def get_list_users(cls):
         lg.warning('get_list_users : {Users.id}, {Users.first_name}')
@@ -60,7 +67,7 @@ class Users(Base):
 
     
 class Informations(Base):
-    # lg.warning('Class Information')
+    lg.info('Class Informations')
     __tablename__ = 'informations'
     id_informations = Column(Integer, primary_key=True)
     dateofcreation = Column(DateTime)
@@ -70,18 +77,18 @@ class Informations(Base):
     user_id = Column(Integer, ForeignKey('users.id_user'))
     
     def save_to_db(self):
-        lg.warning('Class Informations save')
+        lg.info('Class Informations save')
         db.add(self)
         db.commit()
         
     def delete_from_db(self):
-        lg.warning('Class Informations delete')
+        lg.info('Class Informations delete')
         db.delete(self)
         db.commit()
-        
+
     @classmethod
     def get_list_informations(cls):
-        # lg.warning('get_list_users : {Informations.id_informations}, {Informations.dateofcreation}')
+        lg.info('get_list_informations : {Informations.id_informations}, {Informations.dateofcreation}')
         full_list = sqlalchemy.select([Users.first_name,
                                        Users.last_name,
                                        Users.username,
@@ -91,7 +98,7 @@ class Informations(Base):
                                        Informations.text
                                      ])
         return full_list
-        
+
     @classmethod
     def get_list_informations_by_users(cls, user):
         full_list = sqlalchemy.select([Users.first_name,
@@ -104,7 +111,22 @@ class Informations(Base):
                                      ]).filter_by(username=user.username)
         return full_list    
         
+# Function to create db and populate it
+def init_db():
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    
+    for i in range(1,11):
+        Users(first_name = 'toto' + str(i),last_name='toto' + str(i),username='toto' + str(i), password=123, fonction='patient').save_to_db()
+    Users(first_name = 'tata',last_name='tata',username='tata', password=123, fonction='docteur').save_to_db()
+
+    lg.info('Ouverture du fichier CSV Informations')
+    df_test = pd.read_csv('static/df_test.csv')
+    lg.info('Debut enregistrement information')
+    df_test.to_sql('informations', con = engine, if_exists='append', index=False)
+    lg.info('Database initialized!')
         
 if __name__ == '__main__':
     engine = create_engine(SQLALCHEMY_DATABASE_URI)
-    Base.metadata.create_all(engine)
+    init_db()
+    lg.info('Base de donnée à été créer')
