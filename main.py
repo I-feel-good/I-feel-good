@@ -1,4 +1,4 @@
-from model import Users, Informations
+from model import *
 import streamlit as st
 import streamlit_authenticator as stauth
 from sqlalchemy.orm import sessionmaker
@@ -7,91 +7,222 @@ from streamlit_option_menu import option_menu
 import logging as lg
 from dotenv import load_dotenv
 import os
+from st_aggrid import AgGrid
+import pandas as pd
+import datetime
+
+import plotly.express as px
+import plotly.graph_objects as go
+from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 load_dotenv(override=True)
 
 # Database initialization
 # lg.warning('Connection à la base de donnée')
-SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
+# SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
+SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL1").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
 Sessions = sessionmaker(bind=engine)
 db = Sessions()
 
 
-m = st.markdown("""
-<style>
-div.stButton > button:first-child {
-    background-color: primary;
-}
-</style>""", unsafe_allow_html=True)
+def check_password():
+    """Returns `True` if the user had a correct password."""
 
-st.get_option("theme.primaryColor")
+    def password_entered():
+        """Checks whether a password and username entered by the user is correct."""
+        # user = db.query(Users).filter_by(username=st.session_state['username'],
+        #                                  password=st.session_state['password']).first()
+        user = Users.get_user(st.session_state['username'])
+        if user == None:
+            st.session_state["password_correct"] = False
+        elif (
+             (user.username == st.session_state["username"]) and
+             (user.password == st.session_state["password"])#stauth.Hasher(st.session_state["password"]).generate()
+           ):
+            st.success("You have successfully logged in.")
+            st.session_state["password_correct"] = True
+            st.session_state['fonction'] = user.fonction
+            st.session_state['user_name'] = user.username
+            del st.session_state["password"]  # don't store password
+            # del st.session_state["username"]
+        else:
+            st.session_state["password_correct"] = False
+            
 
-def sidebar_menu(connected=False):
-    if connected:
-        lg.warning(f'Connection : {connected}')
-        return option_menu("Main Menu", ["Home", "Patient", "Information", 'Settings', 'Logout'], icons=['house', '', 'card-text','gear'], menu_icon="cast", default_index=1)
+    if "password_correct" not in st.session_state:
+        # First run, show inputs for username + password.
+        st.text_input("Username", on_change=password_entered, key="username")
+        st.text_input("Password", type="password", on_change=password_entered, key="password")
+        return False
+
+    elif not st.session_state["password_correct"]:
+        # Password not correct, show input + error.
+        st.text_input("Username", on_change=password_entered, key="username")#(username, password)
+        st.text_input("Password", type="password", on_change=password_entered, key="password")#(username, password)
+        st.error("User not known or password incorrect")
+        return False
+        
     else:
-        lg.warning(f'Connection : {connected}')
-        return option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
-
+        # Password correct.
+        return True
 
 with st.sidebar:
-    selected = sidebar_menu()
-    # connected = True
-    # if connected:
-    #     lg.warning(f'Connection : {connected}')
-    #     selected =  option_menu("Main Menu", ["Home", "Patient", "Information", 'Settings', 'Logout'], icons=['house', '', 'card-text','gear'], menu_icon="cast", default_index=1)
-    # else:
-    #     lg.warning(f'Connection : {connected}')
-    #     selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
+    if 'password_correct' not in st.session_state:
+        connected = False
+    elif st.session_state['password_correct'] == False:
+        connected = False
+    else:
+        connected = True
+
+
+    if (connected) and st.session_state['fonction'] == 'docteur':
+        lg.warning('Connection : {}'.format("connected as a doctor"))
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
+    elif (connected) and st.session_state['fonction'] == 'patient':
+        lg.warning('Connection : {}'.format("connected as a patient"))
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
+    else:
+        lg.warning('Connection : {}'.format("disconnected"))
+
+        selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 if selected == 'Home':
     st.title('coucou home')
     st.balloons()
     
-elif (selected == 'Patient'):# & (connected==True):
-    st.title('coucou Patient')
-    if st.button('Add Patient'):
-        st.write('Why hello there')
-    else:
-        st.write('Goodbye')
+elif (selected == 'Patient'):
+    st.title('Patients')
+
+    fonction = st.selectbox('Fonction',('Ajouter un patient', 'Liste des patients'))
+
+    if fonction == "Ajouter un patient":
+        with st.form("form1"):
+            first_name = st.text_input('Saisir le prénom')
+            last_name = st.text_input('Saisir le Nom')
+            username = st.text_input('Saisir le Surnom')
+            password = st.text_input('Saisir le Mot de passe')
+            fonction = st.selectbox('Fonction',('Patient', 'Docteur'))
+            submit_add_patient = st.form_submit_button('Ajouter')
+        
+        if submit_add_patient:
+            Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction).save_to_db()
+            st.success(f' Bienvenue  {username}')        
+    elif fonction == "Liste des patients":
+        liste_des_patients = Users.get_list_users_patient()
+        df = pd.read_sql_query(
+             sql = liste_des_patients,
+             con = engine
+        )
+        AgGrid(df)
+        # gb = GridOptionsBuilder.from_dataframe(df_test)
+        # gb.configure_pagination()
+        # gridOptions = gb.build()
+        
+
+        st.error('pas bon')
     
+elif (selected == 'Information'):
+    st.title('Information')
+    fonction = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
     
-elif (selected == 'Information'):# & (connected==True):
-    st.title('coucou Information')
-    if st.button('Add Information'):
-            st.write('Why hello there')
-    else:
-        st.write('Goodbye')
-    
-elif (selected == 'Sign-in'):# & (connected==False):
-    with st.form(key="Login_form"):
-        st.title("Login")
-        st.session_state['username'] = st.text_input('Username')
-        password = st.text_input('Password', type='password', key='login_button')
-        # hashed_password = stauth.Hasher(password).generate()
-        st.session_state['password'] = stauth.Hasher(password).generate()
-        submit_login = st.form_submit_button("Login")
-        if submit_login:
-            user = db.query(Users).filter_by(username=st.session_state['username'],
-                                password=password).first()
-            try:
-                if (user.username == st.session_state['username']) & (user.password == password):
-                    st.write(("username", st.session_state['username'], "password", password))
-                    
-            except AttributeError:
-                st.error("Username or password incorrect.")
-    
+    if fonction == "Ajouter une informations":
+        form = st.form("my_st")
+        form.slider("Inside the st")
+        form.slider("Outside the st")
+
+        # Now add a submit button to the st:
+        # form.form_submit_button("Submit")
+        with form.form_submit_button("Submit"):
+            st.write("TROU DE BALL ")
+            st.stop()
+    elif fonction == 'Liste des informations':
+        query_full_informations = Informations.get_list_informations()
+        df = pd.read_sql_query(
+             sql = query_full_informations,
+             con = engine
+        )
+        AgGrid(df)
+
+elif (selected == 'Dashboard'):
+    if st.session_state['fonction'] == 'docteur':
+        pass
+    elif st.session_state['fonction'] == 'patient':
+        table_box = st.container()
+        radar_box = st.container()
+
+        user = Users.get_user(st.session_state['user_name'])
+        query_full_informations_user = Informations.get_list_informations_by_users(user)
+        df = pd.read_sql_query(
+             sql = query_full_informations_user,
+             con = engine
+             )
+        # AgGrid(df)
+        # st.info(dict(values=[df['first_name']]))
+        df_head = df.head()
+        with table_box:
+            # fig = go.Figure(data=go.Table(
+            #                     columnwidth = [1,1,1,2,2,1,3],
+            #                     header=dict(values=list(['firstname','lastname','username','date of creation','last update', 'emotion', 'text']),
+            #                     fill_color = '#ff6622',
+            #                     align='center'),
+            #                     cells=dict(values=[df_head.first_name,df_head.last_name,df_head.username,
+            #                                     df_head.dateofcreation,df_head.last_updated,df_head.emotion,df_head.text],
+            #                     fill_color="#eeeeee",
+            #                     align='left')
+            #                     ))
+            # fig.update_layout(margin=dict(l=0,r=0,t=0,b=0))
+            # st.write(fig)
+            date_col, text_col = st.columns(2)
+            date = date_col.date_input(label='Select a date')
+            text_col.markdown('Your text of date {}'.format(date))
+            if 'choose_date' not in st.session_state:
+                st.session_state['choose_date'] = False
+
+            if date or st.session_state['choose_date']:
+                st.session_state['choose_date'] = True
+                # text = df['text'][datetime.datetime.strptime(df['last_updated'],'%Y-%m-%d %H:%M:%S.%f').date() == date]
+                # text_col.markdown(df['last_updated'][df['last_updated'] == date])
+
+        with radar_box:
+            
+            df_emotion = pd.DataFrame(df['emotion'].value_counts()).reset_index() \
+                                        .rename(columns={'index':'Emotion','emotion':'proportion'})
+            df_emotion['proportion'] /= df_emotion['proportion'].sum()
+            fig = px.line_polar(df_emotion, r='proportion', theta='Emotion', line_close=True)
+            st.plotly_chart(fig)
+
+# #,df.last_name,df.username,df.dateofcreation,
+#df.last_updated,df.emotion,df.text
+ 
+elif (selected == 'Sign-in'):# & (connected==False):  
+    st.title("Login")
+    if check_password():
+        pass
     
 elif (selected == 'Sign-up'):# & (connected==False):
     st.title("Sign up")
+    last_name = st.text_input('Last name')
+    first_name = st.text_input('First name')
     username = st.text_input('Username')
     password = st.text_input('Password', type='password')
     confirm_password = st.text_input('Confirm password', type='password')
-    hashed_password = stauth.Hasher(password).generate()
-    hashed_confirm_password = stauth.Hasher(confirm_password).generate()
+    signup = st.button('Sign up', key="signup_page_button")
 
-    st.button('Sign up', key="signup_page_button")#, on_click=login_message
+    if signup:
+        if (password == confirm_password) and username:
+            hashed_password = stauth.Hasher(password).generate()
+            Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient').save_to_db()
+            st.success('You have successfully registered. You can now sign-in.')
+
+elif (selected == 'Logout'):
+    st.title('Click to log out')
+    logout = st.button('Log out')
+    if logout:
+        st.session_state['password_correct'] = False
+        del st.session_state['fonction']
+        del st.session_state['user_name']
+        st.experimental_rerun()
+
