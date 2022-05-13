@@ -17,6 +17,8 @@ from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 from streamlit_lottie import st_lottie
 import time
+from pprint import pprint
+
 
 load_dotenv(override=True)
 
@@ -156,6 +158,7 @@ elif (selected == 'Patient'):
     elif fonction == "Liste des patients":
         if st.session_state['fonction'] == 'patient':
             liste_des_patients = Users.get_list_by_user(st.session_state['user_name'])
+            print(liste_des_patients)
             df = pd.read_sql_query(
                 sql = liste_des_patients,
                 con = engine
@@ -183,22 +186,34 @@ elif (selected == 'Information'):
     fonction = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
     
     if fonction == "Ajouter une informations":
-        form = st.form("my_st")
-        form.slider("Inside the st")
-        form.slider("Outside the st")
+        os.system('cls')
+        with st.form("form2"):
+            text = st.text_input('Saisir votre information')
+            if st.session_state['fonction'] == 'docteur':
+                options = Users.get_list_users_patient()
+                df = pd.read_sql_query(
+                sql = options,
+                con = engine
+            )
+                fonction = st.selectbox('Username',(df.username.to_list()))
+            
+            st.form_submit_button("Submit")
 
-        # Now add a submit button to the st:
-        # form.form_submit_button("Submit")
-        with form.form_submit_button("Submit"):
-            st.write("TROU DE BALL ")
-            st.stop()
     elif fonction == 'Liste des informations':
-        query_full_informations = Informations.get_list_informations()
+        os.system('cls')
+        if st.session_state['fonction'] == 'docteur':
+            query_full_informations = Informations.get_list_informations()
+        elif st.session_state['fonction'] == 'patient':
+            query_full_informations = Informations.get_list_informations_username(st.session_state['user_name'])
+            
         df = pd.read_sql_query(
              sql = query_full_informations,
              con = engine
         )
-        AgGrid(df)
+        df, sel_row = data_grid(df)
+        col1, col2= st.columns(2)
+        col1.button('Delete')
+        col2.button('Save')
 
 elif (selected == 'Dashboard'):
     if st.session_state['fonction'] == 'docteur':
