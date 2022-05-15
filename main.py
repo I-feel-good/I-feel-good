@@ -13,7 +13,7 @@ import requests
 import plotly.express as px
 import plotly.graph_objects as go
 
-from dashboard import liquid_plot, radar_factory
+from dashboard_plots import liquid_plot, radar_factory
 import matplotlib.pyplot as plt
 from streamlit_echarts import st_pyecharts
 from pyecharts import options as opts
@@ -124,7 +124,7 @@ with st.sidebar:
 
     if (connected) and st.session_state['fonction'] == 'docteur':
         lg.warning('Connection : {}'.format("connected as a doctor"))
-        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Settings', 'Logout'], icons=['house', 'file-earmark-person', 'card-text','gear','door-open'], menu_icon="cast", default_index=1)
+        selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','graph-up','door-open'], menu_icon="cast", default_index=1)
     elif (connected) and st.session_state['fonction'] == 'patient':
         lg.warning('Connection : {}'.format("connected as a patient"))
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
@@ -134,10 +134,26 @@ with st.sidebar:
         selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 if selected == 'Home':
-    st.title('Bienvenur sur notre application du bonheur')
-    url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
-    res_json = load_lottieurl(url)
-    st_lottie(res_json)
+    if st.session_state['fonction'] == 'patient':
+        st.header('Bienvenue sur notre application du bonheur')
+        st.markdown('Cette application vous permet de suivre votre humeur au fil du temps en \
+                     fonction du contenu que vous laissez dans votre journal. Vous pouvez ainsi \
+                     suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
+                     de la paix intérieure !')
+        url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
+        res_json = load_lottieurl(url)
+        st_lottie(res_json)
+    elif st.session_state['fonction'] == 'docteur':
+        st.header('Bienvenue sur notre application du bonheur')
+        st.markdown('Cette application vous permet de suivre les améliorations de vos patients en \
+                     termes émotionnels. Une IA s\'occupe de classer les articles de journaux de \
+                     vos patients pour vous et automatiquement. Vous pouvez consulter sur les \
+                     périodes que vous souhaitez l\'évolution émotionnelle de vos patients. Vous pouvez ainsi \
+                     employer entièrement votre temps à vos patients pour échanger plutôt que de le perdre dans un travail \
+                     fastidieux de classement.' )
+        url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
+        res_json = load_lottieurl(url)
+        st_lottie(res_json)
     
 elif (selected == 'Patient'):
     st.title('Patients')
@@ -207,7 +223,91 @@ elif (selected == 'Information'):
 
 elif (selected == 'Dashboard'):
     if st.session_state['fonction'] == 'docteur':
-        pass
+        query_informations = Informations.get_list_informations()
+        df = pd.read_sql_query(
+             sql = query_informations,
+             con = engine
+        )
+        st.header('Patient list with their texts sorted by date.')
+        AgGrid(df)
+        df['lastname_firstname'] = df['last_name'] + ' ' + df['first_name']
+        patient_selected = st.selectbox(label='Choose a patient', options=df['lastname_firstname'].unique())
+        user_name = df['username'][df['lastname_firstname'] == patient_selected].unique()
+        
+        user = Users.get_user(user_name[0])
+        query_full_informations_user = Informations.get_list_informations_by_users(user)
+        df_user = pd.read_sql_query(
+             sql = query_full_informations_user,
+             con = engine
+        )
+
+        radar_box = st.container()
+
+        with radar_box:
+            st.header('Select a date interval')
+            early_date_col, late_date_col = st.columns(2)
+            early_date = early_date_col.date_input(label='Select early date')
+            late_date = late_date_col.date_input(label='Select late date')
+            last_updated_datetime = pd.to_datetime(df_user['last_updated']).dt.date
+            if early_date == late_date:
+                df_date = df_user.loc[(last_updated_datetime == early_date)]
+            else:
+                df_date = df_user.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
+
+            df_emotion = pd.DataFrame(df_date['emotion'].value_counts()).reset_index() \
+                                        .rename(columns={'index':'Emotion','emotion':'proportion'})
+            df_emotion['proportion'] /= df_emotion['proportion'].sum()
+
+            if  early_date or late_date:
+                if (early_date <= late_date):
+                    if df_emotion.empty:
+                        st.subheader('No post for this period.')
+                    else:
+
+                        list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
+                        for emotion in list_emotions:
+                            if emotion not in df_emotion['Emotion'].values:
+                                df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
+                        # Wheel of emotions (radar plot)
+                        theta = radar_factory(6,'polygon')
+                        fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(projection='radar'))
+                        ax.plot(theta, df_emotion['proportion'], color='r')
+                        ax.fill(theta, df_emotion['proportion'], facecolor='r', alpha=0.25)
+                        ax.set_varlabels(df_emotion['Emotion'].values.tolist())
+                        fig.text(0.5, 0.965, 'Wheel of emotions of ' + patient_selected,
+                        horizontalalignment='center', color='black', weight='bold',
+                        size='xx-large')
+
+                        # Liquid plot
+                        happy_proportion = df_emotion['proportion'][df_emotion['Emotion']=='happy'].values
+                        love_proportion = df_emotion['proportion'][df_emotion['Emotion']=='love'].values
+                        sadness_proportion = df_emotion['proportion'][df_emotion['Emotion']=='sadness'].values
+                        anger_proportion = df_emotion['proportion'][df_emotion['Emotion']=='anger'].values
+                        fear_proportion = df_emotion['proportion'][df_emotion['Emotion']=='fear'].values
+                        surprise_proportion = df_emotion['proportion'][df_emotion['Emotion']=='surprise'].values
+
+                        happy= liquid_plot(data=happy_proportion[0], title='Happy', liquid_color='#990000', shape=None)
+                        love= liquid_plot(data=love_proportion[0], title='Love', liquid_color='#FF0099', shape=SymbolType.ROUND_RECT)
+                        sadness= liquid_plot(data=sadness_proportion[0], title='Sadness', liquid_color='#0000FF', shape=SymbolType.RECT)
+                        anger= liquid_plot(data=anger_proportion[0], title='Anger', liquid_color='#FF0000', shape=SymbolType.DIAMOND)
+                        fear= liquid_plot(data=fear_proportion[0], title='Fear', liquid_color='#00FF00', shape=SymbolType.ARROW)
+                        surprise= liquid_plot(data=surprise_proportion[0], title='Surprise', liquid_color='#990099', shape=SymbolType.TRIANGLE)
+
+                        st.pyplot(fig)
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st_pyecharts(happy)
+                            st_pyecharts(love)
+                        with col2:
+                            st_pyecharts(sadness)
+                            st_pyecharts(anger)
+                        with col3:
+                            st_pyecharts(fear)
+                            st_pyecharts(surprise)
+                else:
+                    st.error('The early date must be earliest than the late date !')
+
+        
     elif st.session_state['fonction'] == 'patient':
         radar_box = st.container()
         table_box = st.container()
@@ -217,10 +317,8 @@ elif (selected == 'Dashboard'):
         df = pd.read_sql_query(
              sql = query_full_informations_user,
              con = engine
-             )
-        # AgGrid(df)
-        # st.info(dict(values=[df['first_name']]))
-        df_head = df.head()
+        )
+        
         with radar_box:
             st.header('Select a date interval')
             early_date_col, late_date_col = st.columns(2)
