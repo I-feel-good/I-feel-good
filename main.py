@@ -236,16 +236,16 @@ elif (selected == 'Dashboard'):
                                         .rename(columns={'index':'Emotion','emotion':'proportion'})
             df_emotion['proportion'] /= df_emotion['proportion'].sum()
 
-            list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
-            for emotion in list_emotions:
-                if emotion not in df_emotion['Emotion'].values:
-                    df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
-
             if  early_date or late_date:
                 if (early_date <= late_date):
                     if df_emotion.empty:
                         st.subheader('No post for this period.')
                     else:
+
+                        list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
+                        for emotion in list_emotions:
+                            if emotion not in df_emotion['Emotion'].values:
+                                df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
                         # Wheel of emotions (radar plot)
                         theta = radar_factory(6,'polygon')
                         fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(projection='radar'))
