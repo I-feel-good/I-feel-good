@@ -9,16 +9,22 @@ from dotenv import load_dotenv
 import os
 from st_aggrid import AgGrid
 import pandas as pd
+import numpy as np
 import requests
 import plotly.express as px
 import plotly.graph_objects as go
+import pickle
 
 from dashboard_plots import liquid_plot, radar_factory
+from clean_text import clean_text, texts_to_sequences, prediction_to_emotions
 import matplotlib.pyplot as plt
 from streamlit_echarts import st_pyecharts
 from pyecharts import options as opts
 from pyecharts.charts import Liquid, Polar
 from pyecharts.globals import SymbolType
+
+from tensorflow import keras
+from keras.preprocessing.sequence import pad_sequences
 
 from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
@@ -29,6 +35,7 @@ load_dotenv(override=True)
 
 # Database initialization
 # lg.warning('Connection à la base de donnée')
+
 # SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL").replace('postgres://','postgresql://')
 SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL1").replace('postgres://','postgresql://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -44,6 +51,15 @@ hide_menu_style = """
     """
 
 st.markdown(hide_menu_style, unsafe_allow_html=True)
+
+# We load the original tokenizer used during training :
+def tokenizer_load(path):
+    with open(path, 'rb') as file:
+        return pickle.load(file)
+
+def model_load(path):
+    with open(path, 'rb') as file:
+        return keras.models.load_model(path)
 
 def load_lottieurl(url: str):
     r = requests.get(url)
@@ -76,8 +92,6 @@ def check_password():
 
     def password_entered():
         """Checks whether a password and username entered by the user is correct."""
-        # user = db.query(Users).filter_by(username=st.session_state['username'],
-        #                                  password=st.session_state['password']).first()
         user = Users.get_user(st.session_state['username'])
         if user == None:
             st.session_state["password_correct"] = False
@@ -86,11 +100,9 @@ def check_password():
              (user.password == st.session_state["password"])#stauth.Hasher(st.session_state["password"]).generate()
            ):
             st.success("You have successfully logged in.")
+            st.experimental_set_query_params(login="logged_in", username=user.username)
             st.session_state["password_correct"] = True
-            st.session_state['fonction'] = user.fonction
-            st.session_state['user_name'] = user.username
             del st.session_state["password"]  # don't store password
-            # del st.session_state["username"]
         else:
             st.session_state["password_correct"] = False
             
@@ -112,29 +124,37 @@ def check_password():
         # Password correct.
         return True
 
+# We load the pre-trained tokenizer
+path_tokenizer = './ML_models/tokenizer.pkl'
+tokenizer = tokenizer_load(path_tokenizer)
+
+# We load the pre-trained model
+path_model = './ML_models/neural_lstm_kaggle_clean.h5'
+model = model_load(path_model)
+
 with st.sidebar:
-
-    if 'password_correct' not in st.session_state:
+    
+    if not bool(st.experimental_get_query_params()):
         connected = False
-    elif st.session_state['password_correct'] == False:
-        connected = False
-    else:
+    elif st.experimental_get_query_params()['login'][0] == 'logged_in':
         connected = True
+        fonction = Users.get_user(st.experimental_get_query_params()['username'][0]).fonction
+    else:
+        connected = False
 
-
-    if (connected) and st.session_state['fonction'] == 'docteur':
+    
+    if (connected) and fonction == 'docteur':
         lg.warning('Connection : {}'.format("connected as a doctor"))
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','graph-up','door-open'], menu_icon="cast", default_index=1)
-    elif (connected) and st.session_state['fonction'] == 'patient':
+    elif (connected) and fonction == 'patient':
         lg.warning('Connection : {}'.format("connected as a patient"))
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','door-open'], menu_icon="cast", default_index=1)
     else:
         lg.warning('Connection : {}'.format("disconnected"))
-
         selected =  option_menu("Main Menu", ["Home","Sign-in", "Sign-up"], icons=['house', "person", "pen"], menu_icon="cast", default_index=1)
 
 if selected == 'Home':
-    if st.session_state['fonction'] == 'patient':
+    if (fonction == 'patient'):
         st.header('Bienvenue sur notre application du bonheur')
         st.markdown('Cette application vous permet de suivre votre humeur au fil du temps en \
                      fonction du contenu que vous laissez dans votre journal. Vous pouvez ainsi \
@@ -143,7 +163,7 @@ if selected == 'Home':
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
         res_json = load_lottieurl(url)
         st_lottie(res_json)
-    elif st.session_state['fonction'] == 'docteur':
+    elif fonction == 'docteur':
         st.header('Bienvenue sur notre application du bonheur')
         st.markdown('Cette application vous permet de suivre les améliorations de vos patients en \
                      termes émotionnels. Une IA s\'occupe de classer les articles de journaux de \
@@ -154,12 +174,21 @@ if selected == 'Home':
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
         res_json = load_lottieurl(url)
         st_lottie(res_json)
+    else:
+        st.header('Bienvenue sur notre application du bonheur')
+        st.markdown('Cette application vous permet de suivre votre humeur au fil du temps en \
+                     fonction du contenu que vous laissez dans votre journal. Vous pouvez ainsi \
+                     suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
+                     de la paix intérieure !')
+        url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
+        res_json = load_lottieurl(url)
+        st_lottie(res_json)
     
 elif (selected == 'Patient'):
     st.title('Patients')
-    if st.session_state['fonction'] == 'patient':
+    if fonction == 'patient':
         fonction = st.selectbox('Fonction',(['Liste des patients']))
-    elif st.session_state['fonction'] == 'docteur':
+    elif fonction == 'docteur':
         fonction = st.selectbox('Fonction',('Ajouter un patient', 'Liste des patients'))
 
     if fonction == "Ajouter un patient":
@@ -175,8 +204,8 @@ elif (selected == 'Patient'):
             Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction).save_to_db()
             st.success(f' Bienvenue  {username}')        
     elif fonction == "Liste des patients":
-        if st.session_state['fonction'] == 'patient':
-            liste_des_patients = Users.get_list_by_user(st.session_state['user_name'])
+        if fonction == 'patient':
+            liste_des_patients = Users.get_list_by_user(st.experimental_get_query_params()['username'][0])
             df = pd.read_sql_query(
                 sql = liste_des_patients,
                 con = engine
@@ -187,7 +216,7 @@ elif (selected == 'Patient'):
             col2.button('Save')
             st.write(sel_row)
             # pass get_list_by_user""
-        elif st.session_state['fonction'] == 'docteur':
+        elif fonction == 'docteur':
             liste_des_patients = Users.get_list_users_patient()
             df = pd.read_sql_query(
                 sql = liste_des_patients,
@@ -222,7 +251,7 @@ elif (selected == 'Information'):
         AgGrid(df)
 
 elif (selected == 'Dashboard'):
-    if st.session_state['fonction'] == 'docteur':
+    if fonction == 'docteur':
         query_informations = Informations.get_list_informations()
         df = pd.read_sql_query(
              sql = query_informations,
@@ -241,6 +270,17 @@ elif (selected == 'Dashboard'):
              con = engine
         )
 
+        # Cleaning data
+        df_text_clean = clean_text(df_user['text'])
+
+        # We prepare data as a list of sequences.
+        word_index = tokenizer.word_index
+        sequences = texts_to_sequences(df_text_clean['text'], word_index)
+        padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
+
+        # Prediction
+        y_pred = model.predict(padded_sequences)
+        df_user['prediction'] = prediction_to_emotions(y_pred)
         radar_box = st.container()
 
         with radar_box:
@@ -254,8 +294,8 @@ elif (selected == 'Dashboard'):
             else:
                 df_date = df_user.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
 
-            df_emotion = pd.DataFrame(df_date['emotion'].value_counts()).reset_index() \
-                                        .rename(columns={'index':'Emotion','emotion':'proportion'})
+            df_emotion = pd.DataFrame(df_date['prediction'].value_counts()).reset_index() \
+                                        .rename(columns={'index':'Emotion','prediction':'proportion'})
             df_emotion['proportion'] /= df_emotion['proportion'].sum()
 
             if  early_date or late_date:
@@ -308,17 +348,29 @@ elif (selected == 'Dashboard'):
                     st.error('The early date must be earliest than the late date !')
 
         
-    elif st.session_state['fonction'] == 'patient':
+    elif fonction == 'patient':
         radar_box = st.container()
         table_box = st.container()
 
-        user = Users.get_user(st.session_state['user_name'])
+        user = Users.get_user(st.experimental_get_query_params()['username'][0])
         query_full_informations_user = Informations.get_list_informations_by_users(user)
         df = pd.read_sql_query(
              sql = query_full_informations_user,
              con = engine
         )
         
+        # Cleaning data
+        df_text_clean = clean_text(df['text'])
+
+        # We prepare data as a list of sequences.
+        word_index = tokenizer.word_index
+        sequences = texts_to_sequences(df_text_clean['text'], word_index)
+        padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
+
+        # Prediction
+        y_pred = model.predict(padded_sequences)
+        df['prediction'] = prediction_to_emotions(y_pred)
+
         with radar_box:
             st.header('Select a date interval')
             early_date_col, late_date_col = st.columns(2)
@@ -330,8 +382,8 @@ elif (selected == 'Dashboard'):
             else:
                 df_date = df.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
 
-            df_emotion = pd.DataFrame(df_date['emotion'].value_counts()).reset_index() \
-                                        .rename(columns={'index':'Emotion','emotion':'proportion'})
+            df_emotion = pd.DataFrame(df_date['prediction'].value_counts()).reset_index() \
+                                        .rename(columns={'index':'Emotion','prediction':'proportion'})
             df_emotion['proportion'] /= df_emotion['proportion'].sum()
 
             if  early_date or late_date:
@@ -431,7 +483,7 @@ elif (selected == 'Sign-up'):# & (connected==False):
     if signup:
         if (password == confirm_password) and username:
             hashed_password = stauth.Hasher(password).generate()
-            Users(last_name=last_name, first_name = first_name, username=username, password= password, fonction='patient').save_to_db()
+            Users(last_name=last_name, first_name = first_name, username=username, password=password, fonction='patient').save_to_db()
             st.success('You have successfully registered. You can now sign-in.')
 
 elif (selected == 'Logout'):
@@ -441,8 +493,9 @@ elif (selected == 'Logout'):
     res_json = load_lottieurl(url)
     st_lottie(res_json)
     if logout:
+        lg.warning('logged out')
         st.session_state['password_correct'] = False
-        del st.session_state['fonction']
-        del st.session_state['user_name']
-        st.experimental_rerun()
+        st.experimental_set_query_params(login='logged_out',username='')
+        if st.experimental_get_query_params['login'][0] == 'logged_out':
+            st.experimental_rerun()
 
