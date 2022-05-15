@@ -49,7 +49,14 @@ class Users(Base):
     def get_list_users_patient(cls):
         lg.info('get_list_users_patient :')
         list_users = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username]).where(Users.fonction == 'patient')
+        lg.info(list_users)
         return  list_users
+    
+    @classmethod
+    def get_list_users_patient_(cls):
+        lg.info('get_list_users_patient :')
+        full_list = db.query(cls).all()
+        return full_list
     
     @classmethod
     def get_list_by_user(cls,username):
@@ -98,6 +105,7 @@ class Informations(Base):
         db.commit()
 
     @classmethod
+
     def get_list_informations(cls):
         lg.info('get_list_informations : {Informations.id_informations}, {Informations.dateofcreation}')
         # full_list = db.query(Users, Informations).join(Informations).first()
@@ -110,6 +118,16 @@ class Informations(Base):
                                        Informations.text
                                      ]).join(Informations)#.filter_by(username=user.username)
         return full_list  
+
+
+    @classmethod
+    def get_list_informations_username(cls, username):
+        lg.info(f'get_list_informations : {username}')
+        full_list = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username, Users.fonction, 
+                                           Informations.dateofcreation,Informations.last_updated, Informations.emotion, Informations.text, 
+                                           ]).where(Users.id_user == Informations.user_id, Users.username==username)
+        return full_list
+
 
     @classmethod
     def get_list_informations_by_users(cls, user):
