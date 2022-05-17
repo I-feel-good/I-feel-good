@@ -283,7 +283,6 @@ elif (selected == 'Dashboard'):
         list_of_patients = np.append(list_of_patients, 'All patients')
 
         patient_selected = st.selectbox(label='Choose a patient', options=list_of_patients)
-
         if patient_selected != 'All patients':
             list_of_patients = np.delete(list_of_patients, -1)
             user_name = df['username'][list_of_patients == patient_selected].unique()
@@ -294,7 +293,7 @@ elif (selected == 'Dashboard'):
                 sql = query_full_informations_user,
                 con = engine
             )
-
+            
             radio = st.radio(label='Choose a filter', options=['Custom', 'Year', 'Month', 'Day'])
             list_years = sorted(df_user['last_updated'].dt.year.unique())
             list_months = sorted(df_user['last_updated'].dt.month.unique())
@@ -302,7 +301,7 @@ elif (selected == 'Dashboard'):
             last_update = pd.to_datetime(df_user['last_updated']).dt.date
             early_date = datetime.now().date()
             late_date = early_date
-
+            
             if radio == 'Year':
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
                 date_choice = datetime.strptime(str(year_choice), '%Y').date()
@@ -311,7 +310,7 @@ elif (selected == 'Dashboard'):
 
             elif radio == 'Month': 
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
-                month_choice = st.selectbox(label='Choose a year', options=list_months)
+                month_choice = st.selectbox(label='Choose a month', options=list_months)
                 date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
                 if month_choice != 12:
                     date_choice_next = datetime.strptime(str(year_choice) + '-' + str(month_choice+1), '%Y-%m').date()
@@ -341,7 +340,6 @@ elif (selected == 'Dashboard'):
             word_index = tokenizer.word_index
             sequences = texts_to_sequences(df_text_clean['text'], word_index)
             padded_sequences = pad_sequences(sequences, maxlen=100, padding='post', truncating='post')
-   
             # Prediction
             if df_user.empty:
                 st.subheader('No post for this period.')
@@ -349,7 +347,6 @@ elif (selected == 'Dashboard'):
                 y_pred = model.predict(padded_sequences)
                 df_user = df_user.reset_index(drop=True)
                 df_user['prediction'] = prediction_to_emotions(y_pred)
-
                 radar_box = st.container()
                 with radar_box:
                     df_emotion = pd.DataFrame(df_user['prediction'].value_counts()).reset_index() \
@@ -429,10 +426,9 @@ elif (selected == 'Dashboard'):
                 date_choice = datetime.strptime(str(year_choice), '%Y').date()
                 date_choice_next = datetime.strptime(str(year_choice+1), '%Y').date()
                 df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
-
             elif radio == 'Month': 
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
-                month_choice = st.selectbox(label='Choose a year', options=list_months)
+                month_choice = st.selectbox(label='Choose a month', options=list_months)
                 date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
                 if month_choice != 12:
                     date_choice_next = datetime.strptime(str(year_choice) + '-' + str(month_choice+1), '%Y-%m').date()
@@ -454,12 +450,15 @@ elif (selected == 'Dashboard'):
                     df_user = df_user.loc[(last_update >= early_date) & (last_update <= late_date)]
             # Cleaning data
             df_text_clean = clean_text(df_user['text'])
+            # st.info(df_user['last_updated'].loc[df_user['last_updated'] == datetime.strptime('2021-03-21', '%Y-%m-%d').date()])
+            st.write(df_user['text'])
 
             # We prepare data as a list of sequences.
             word_index = tokenizer.word_index
             sequences = texts_to_sequences(df_text_clean['text'], word_index)
             padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
-
+            st.write(type(df_text_clean['text'].tolist()[0]))
+            st.write(df_user.columns)
             if df_user.empty:
                 st.subheader('No post for this period.')
             else:

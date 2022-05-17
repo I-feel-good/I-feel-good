@@ -158,7 +158,7 @@ def init_db():
     Users(first_name = 'tata',last_name='tata',username='tata', password=123, fonction='docteur').save_to_db()
 
     lg.info('Ouverture du fichier CSV Informations')
-    df_test = pd.read_csv('static/df_test_2.csv')
+    df_test = pd.read_csv('static/df_test_kaggle.csv')
     lg.info('Debut enregistrement information')
     df_test.to_sql('informations', con = engine, if_exists='append', index=False)
     lg.info('Database initialized!')
