@@ -8,7 +8,7 @@ import streamlit as st
 EMOTIONS = {'happy':0, 'sadness':1, 'anger':2, 'fear':3, 'love':4, 'surprise':5}
 
 def clean_text(data):
-
+    
     punctuation = string.punctuation
     for p in punctuation:
         data = data.str.replace(p,'')
