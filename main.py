@@ -1,3 +1,4 @@
+from datetime import datetime
 from model import *
 import streamlit as st
 import streamlit_authenticator as stauth
@@ -103,8 +104,8 @@ def check_password():
              (user.password == st.session_state["password"])#stauth.Hasher(st.session_state["password"]).generate()
            ):
             st.success("You have successfully logged in.")
-            st.experimental_set_query_params(login="logged_in", username=user.username)
             st.session_state["password_correct"] = True
+            st.experimental_set_query_params(login="logged_in", username=user.username)
             del st.session_state["password"]  # don't store password
 
         else:
@@ -208,7 +209,7 @@ elif (selected == 'Patient'):
             Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=choix_fonction).save_to_db()
             st.success(f' Bienvenue  {username}')        
     elif choix_fonction == "Liste des patients":
-      
+
         if fonction == 'patient':
             liste_des_patients = Users.get_list_by_user(st.experimental_get_query_params()['username'][0])
             df = pd.read_sql_query(
@@ -270,216 +271,257 @@ elif (selected == 'Information'):
 
 elif (selected == 'Dashboard'):
     if fonction == 'docteur':
-        query_informations = Informations.get_list_informations()
+        query_informations = Users.get_list_users_patient()
         df = pd.read_sql_query(
              sql = query_informations,
              con = engine
         )
-        st.header('Patient list with their texts sorted by date.')
-        AgGrid(df)
-        df['lastname_firstname'] = df['last_name'] + ' ' + df['first_name']
-        patient_selected = st.selectbox(label='Choose a patient', options=df['lastname_firstname'].unique())
-        user_name = df['username'][df['lastname_firstname'] == patient_selected].unique()
+        # st.header('Patient list with their texts sorted by date.')
+        # AgGrid(df)
+        st.header('Select a patient.')
+        list_of_patients = (df['last_name'] + ' ' + df['first_name']).unique()
+        list_of_patients = np.append(list_of_patients, 'All patients')
+
+        patient_selected = st.selectbox(label='Choose a patient', options=list_of_patients)
+
+        if patient_selected != 'All patients':
+            list_of_patients = np.delete(list_of_patients, -1)
+            user_name = df['username'][list_of_patients == patient_selected].unique()
+            
+            user = Users.get_user(user_name[0])
+            query_full_informations_user = Informations.get_list_informations_by_users(user)
+            df_user = pd.read_sql_query(
+                sql = query_full_informations_user,
+                con = engine
+            )
+
+            radio = st.radio(label='Choose a filter', options=['Custom', 'Year', 'Month', 'Day'])
+            list_years = sorted(df_user['last_updated'].dt.year.unique())
+            list_months = sorted(df_user['last_updated'].dt.month.unique())
+            list_days = sorted(df_user['last_updated'].dt.day.unique())
+            last_update = pd.to_datetime(df_user['last_updated']).dt.date
+            early_date = datetime.now().date()
+            late_date = early_date
+
+            if radio == 'Year':
+                year_choice = st.selectbox(label='Choose a year', options=list_years)
+                date_choice = datetime.strptime(str(year_choice), '%Y').date()
+                date_choice_next = datetime.strptime(str(year_choice+1), '%Y').date()
+                df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
+
+            elif radio == 'Month': 
+                year_choice = st.selectbox(label='Choose a year', options=list_years)
+                month_choice = st.selectbox(label='Choose a year', options=list_months)
+                date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
+                if month_choice != 12:
+                    date_choice_next = datetime.strptime(str(year_choice) + '-' + str(month_choice+1), '%Y-%m').date()
+                    df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
+                else:
+                    date_choice_next = datetime.strptime(str(year_choice+1) + '-' + str(1), '%Y-%m').date()
+                    df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
+            elif radio == 'Day':
+                date_choice = st.date_input(label='Select a date')
+                df_user = df_user.loc[(last_update == date_choice)]
+            else:
+                st.header('Select a date interval')
+                early_date_col, late_date_col = st.columns(2)
+                early_date = early_date_col.date_input(label='Select early date')
+                late_date = late_date_col.date_input(label='Select late date')
+                last_updated_datetime = pd.to_datetime(df_user['last_updated']).dt.date
+                if early_date == late_date:
+                    df_user = df_user.loc[(last_updated_datetime == early_date)]
+                else:
+                    df_user = df_user.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
+            
+            
+            # Cleaning data
+            df_text_clean = clean_text(df_user['text'])
+
+            # We prepare data as a list of sequences.
+            word_index = tokenizer.word_index
+            sequences = texts_to_sequences(df_text_clean['text'], word_index)
+            padded_sequences = pad_sequences(sequences, maxlen=100, padding='post', truncating='post')
+   
+            # Prediction
+            if df_user.empty:
+                st.subheader('No post for this period.')
+            else:
+                y_pred = model.predict(padded_sequences)
+                df_user = df_user.reset_index(drop=True)
+                df_user['prediction'] = prediction_to_emotions(y_pred)
+
+                radar_box = st.container()
+                with radar_box:
+                    df_emotion = pd.DataFrame(df_user['prediction'].value_counts()).reset_index() \
+                                                .rename(columns={'index':'Emotion','prediction':'proportion'})
+                    df_emotion['proportion'] /= df_emotion['proportion'].sum()
+                    if early_date or late_date:
+                        if (early_date <= late_date):
+
+                            list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
+                            for emotion in list_emotions:
+                                if emotion not in df_emotion['Emotion'].values:
+                                    df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
+                            # Wheel of emotions (radar plot)
+                            theta = radar_factory(6,'polygon')
+                            fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(projection='radar'))
+                            ax.plot(theta, df_emotion['proportion'], color='r')
+                            ax.fill(theta, df_emotion['proportion'], facecolor='r', alpha=0.25)
+                            ax.set_varlabels(df_emotion['Emotion'].values.tolist())
+                            fig.text(0.5, 0.965, 'Wheel of emotions of ' + patient_selected,
+                            horizontalalignment='center', color='black', weight='bold',
+                            size='xx-large')
+
+                            # Liquid plot
+                            happy_proportion = df_emotion['proportion'][df_emotion['Emotion']=='happy'].values
+                            love_proportion = df_emotion['proportion'][df_emotion['Emotion']=='love'].values
+                            sadness_proportion = df_emotion['proportion'][df_emotion['Emotion']=='sadness'].values
+                            anger_proportion = df_emotion['proportion'][df_emotion['Emotion']=='anger'].values
+                            fear_proportion = df_emotion['proportion'][df_emotion['Emotion']=='fear'].values
+                            surprise_proportion = df_emotion['proportion'][df_emotion['Emotion']=='surprise'].values
+
+                            happy= liquid_plot(data=happy_proportion[0], title='Happy', liquid_color='#990000', shape=None)
+                            love= liquid_plot(data=love_proportion[0], title='Love', liquid_color='#FF0099', shape=SymbolType.ROUND_RECT)
+                            sadness= liquid_plot(data=sadness_proportion[0], title='Sadness', liquid_color='#0000FF', shape=SymbolType.RECT)
+                            anger= liquid_plot(data=anger_proportion[0], title='Anger', liquid_color='#FF0000', shape=SymbolType.DIAMOND)
+                            fear= liquid_plot(data=fear_proportion[0], title='Fear', liquid_color='#00FF00', shape=SymbolType.ARROW)
+                            surprise= liquid_plot(data=surprise_proportion[0], title='Surprise', liquid_color='#990099', shape=SymbolType.TRIANGLE)
+
+                            st.pyplot(fig)
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st_pyecharts(happy)
+                                st_pyecharts(love)
+                            with col2:
+                                st_pyecharts(sadness)
+                                st_pyecharts(anger)
+                            with col3:
+                                st_pyecharts(fear)
+                                st_pyecharts(surprise)
+                        else:
+                            st.error('The early date must be earliest than the late date !')
+
         
-        user = Users.get_user(user_name[0])
+    elif fonction == 'patient':
+
+
+        filter_box = st.container()
+        radar_box = st.container()
+
+        user = Users.get_user(st.experimental_get_query_params()['username'][0])
         query_full_informations_user = Informations.get_list_informations_by_users(user)
         df_user = pd.read_sql_query(
              sql = query_full_informations_user,
              con = engine
         )
+        with filter_box:
+            st.header('Choose a filter')
+            radio = st.radio(label='', options=['Custom', 'Year', 'Month', 'Day'])
+            list_years = sorted(df_user['last_updated'].dt.year.unique())
+            list_months = sorted(df_user['last_updated'].dt.month.unique())
+            list_days = sorted(df_user['last_updated'].dt.day.unique())
+            last_update = pd.to_datetime(df_user['last_updated']).dt.date
+            early_date = datetime.now().date()
+            late_date = early_date
 
-        # Cleaning data
-        df_text_clean = clean_text(df_user['text'])
+            if radio == 'Year':
+                year_choice = st.selectbox(label='Choose a year', options=list_years)
+                date_choice = datetime.strptime(str(year_choice), '%Y').date()
+                date_choice_next = datetime.strptime(str(year_choice+1), '%Y').date()
+                df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
 
-        # We prepare data as a list of sequences.
-        word_index = tokenizer.word_index
-        sequences = texts_to_sequences(df_text_clean['text'], word_index)
-        padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
-
-        # Prediction
-        y_pred = model.predict(padded_sequences)
-        df_user['prediction'] = prediction_to_emotions(y_pred)
-        radar_box = st.container()
-
-        with radar_box:
-            st.header('Select a date interval')
-            early_date_col, late_date_col = st.columns(2)
-            early_date = early_date_col.date_input(label='Select early date')
-            late_date = late_date_col.date_input(label='Select late date')
-            last_updated_datetime = pd.to_datetime(df_user['last_updated']).dt.date
-            if early_date == late_date:
-                df_date = df_user.loc[(last_updated_datetime == early_date)]
+            elif radio == 'Month': 
+                year_choice = st.selectbox(label='Choose a year', options=list_years)
+                month_choice = st.selectbox(label='Choose a year', options=list_months)
+                date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
+                if month_choice != 12:
+                    date_choice_next = datetime.strptime(str(year_choice) + '-' + str(month_choice+1), '%Y-%m').date()
+                    df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
+                else:
+                    date_choice_next = datetime.strptime(str(year_choice+1) + '-' + str(1), '%Y-%m').date()
+                    df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
+            elif radio == 'Day':
+                date_choice = st.date_input(label='Select a date')
+                df_user = df_user.loc[(last_update == date_choice)]
             else:
-                df_date = df_user.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
-
-            df_emotion = pd.DataFrame(df_date['prediction'].value_counts()).reset_index() \
-                                        .rename(columns={'index':'Emotion','prediction':'proportion'})
-            df_emotion['proportion'] /= df_emotion['proportion'].sum()
-
-            if  early_date or late_date:
-                if (early_date <= late_date):
-                    if df_emotion.empty:
-                        st.subheader('No post for this period.')
-                    else:
-
-                        list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
-                        for emotion in list_emotions:
-                            if emotion not in df_emotion['Emotion'].values:
-                                df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
-                        # Wheel of emotions (radar plot)
-                        theta = radar_factory(6,'polygon')
-                        fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(projection='radar'))
-                        ax.plot(theta, df_emotion['proportion'], color='r')
-                        ax.fill(theta, df_emotion['proportion'], facecolor='r', alpha=0.25)
-                        ax.set_varlabels(df_emotion['Emotion'].values.tolist())
-                        fig.text(0.5, 0.965, 'Wheel of emotions of ' + patient_selected,
-                        horizontalalignment='center', color='black', weight='bold',
-                        size='xx-large')
-
-                        # Liquid plot
-                        happy_proportion = df_emotion['proportion'][df_emotion['Emotion']=='happy'].values
-                        love_proportion = df_emotion['proportion'][df_emotion['Emotion']=='love'].values
-                        sadness_proportion = df_emotion['proportion'][df_emotion['Emotion']=='sadness'].values
-                        anger_proportion = df_emotion['proportion'][df_emotion['Emotion']=='anger'].values
-                        fear_proportion = df_emotion['proportion'][df_emotion['Emotion']=='fear'].values
-                        surprise_proportion = df_emotion['proportion'][df_emotion['Emotion']=='surprise'].values
-
-                        happy= liquid_plot(data=happy_proportion[0], title='Happy', liquid_color='#990000', shape=None)
-                        love= liquid_plot(data=love_proportion[0], title='Love', liquid_color='#FF0099', shape=SymbolType.ROUND_RECT)
-                        sadness= liquid_plot(data=sadness_proportion[0], title='Sadness', liquid_color='#0000FF', shape=SymbolType.RECT)
-                        anger= liquid_plot(data=anger_proportion[0], title='Anger', liquid_color='#FF0000', shape=SymbolType.DIAMOND)
-                        fear= liquid_plot(data=fear_proportion[0], title='Fear', liquid_color='#00FF00', shape=SymbolType.ARROW)
-                        surprise= liquid_plot(data=surprise_proportion[0], title='Surprise', liquid_color='#990099', shape=SymbolType.TRIANGLE)
-
-                        st.pyplot(fig)
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st_pyecharts(happy)
-                            st_pyecharts(love)
-                        with col2:
-                            st_pyecharts(sadness)
-                            st_pyecharts(anger)
-                        with col3:
-                            st_pyecharts(fear)
-                            st_pyecharts(surprise)
+                st.header('Select a date interval')
+                early_date_col, late_date_col = st.columns(2)
+                early_date = early_date_col.date_input(label='Select early date', key='early_date_input')
+                late_date = late_date_col.date_input(label='Select late date', key='late_date_input')
+                if early_date == late_date:
+                    df_user = df_user.loc[(last_update == early_date)]
                 else:
-                    st.error('The early date must be earliest than the late date !')
+                    df_user = df_user.loc[(last_update >= early_date) & (last_update <= late_date)]
+            # Cleaning data
+            df_text_clean = clean_text(df_user['text'])
 
-        
-    elif fonction == 'patient':
-        radar_box = st.container()
-        table_box = st.container()
+            # We prepare data as a list of sequences.
+            word_index = tokenizer.word_index
+            sequences = texts_to_sequences(df_text_clean['text'], word_index)
+            padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
 
-        user = Users.get_user(st.experimental_get_query_params()['username'][0])
-        query_full_informations_user = Informations.get_list_informations_by_users(user)
-        df = pd.read_sql_query(
-             sql = query_full_informations_user,
-             con = engine
-        )
-        
-        # Cleaning data
-        df_text_clean = clean_text(df['text'])
-
-        # We prepare data as a list of sequences.
-        word_index = tokenizer.word_index
-        sequences = texts_to_sequences(df_text_clean['text'], word_index)
-        padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
-
-        # Prediction
-        y_pred = model.predict(padded_sequences)
-        df['prediction'] = prediction_to_emotions(y_pred)
-
-        with radar_box:
-            st.header('Select a date interval')
-            early_date_col, late_date_col = st.columns(2)
-            early_date = early_date_col.date_input(label='Select early date')
-            late_date = late_date_col.date_input(label='Select late date')
-            last_updated_datetime = pd.to_datetime(df['last_updated']).dt.date
-            if early_date == late_date:
-                df_date = df.loc[(last_updated_datetime == early_date)]
+            if df_user.empty:
+                st.subheader('No post for this period.')
             else:
-                df_date = df.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
+                # Prediction
+                y_pred = model.predict(padded_sequences)
+                df_user = df_user.reset_index(drop=True)
+                df_user['prediction'] = prediction_to_emotions(y_pred)
 
-            df_emotion = pd.DataFrame(df_date['prediction'].value_counts()).reset_index() \
-                                        .rename(columns={'index':'Emotion','prediction':'proportion'})
-            df_emotion['proportion'] /= df_emotion['proportion'].sum()
+                with radar_box:
+                
+                    df_emotion = pd.DataFrame(df_user['prediction'].value_counts()).reset_index() \
+                                                .rename(columns={'index':'Emotion','prediction':'proportion'})
+                    df_emotion['proportion'] /= df_emotion['proportion'].sum()
 
-            if  early_date or late_date:
-                if (early_date <= late_date):
-                    if df_emotion.empty:
-                        st.subheader('No post for this period.')
-                    else:
+                    if  early_date or late_date:
+                        if (early_date <= late_date):
+                            if df_emotion.empty:
+                                st.subheader('No post for this period.')
+                            else:
 
-                        list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
-                        for emotion in list_emotions:
-                            if emotion not in df_emotion['Emotion'].values:
-                                df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
-                        # Wheel of emotions (radar plot)
-                        theta = radar_factory(6,'polygon')
-                        fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(projection='radar'))
-                        ax.plot(theta, df_emotion['proportion'], color='r')
-                        ax.fill(theta, df_emotion['proportion'], facecolor='r', alpha=0.25)
-                        ax.set_varlabels(df_emotion['Emotion'].values.tolist())
-                        fig.text(0.5, 0.965, 'Wheel of emotions',
-                        horizontalalignment='center', color='black', weight='bold',
-                        size='xx-large')
+                                list_emotions = ['happy', 'love', 'sadness', 'anger', 'fear', 'surprise']
+                                for emotion in list_emotions:
+                                    if emotion not in df_emotion['Emotion'].values:
+                                        df_emotion = df_emotion.append({'Emotion': emotion, 'proportion': 0}, ignore_index=True)
+                                # Wheel of emotions (radar plot)
+                                theta = radar_factory(6,'polygon')
+                                fig, ax = plt.subplots(figsize=(4, 4), subplot_kw=dict(projection='radar'))
+                                ax.plot(theta, df_emotion['proportion'], color='r')
+                                ax.fill(theta, df_emotion['proportion'], facecolor='r', alpha=0.25)
+                                ax.set_varlabels(df_emotion['Emotion'].values.tolist())
+                                fig.text(0.5, 0.965, 'Wheel of emotions',
+                                horizontalalignment='center', color='black', weight='bold',
+                                size='xx-large')
 
-                        # Liquid plot
-                        happy_proportion = df_emotion['proportion'][df_emotion['Emotion']=='happy'].values
-                        love_proportion = df_emotion['proportion'][df_emotion['Emotion']=='love'].values
-                        sadness_proportion = df_emotion['proportion'][df_emotion['Emotion']=='sadness'].values
-                        anger_proportion = df_emotion['proportion'][df_emotion['Emotion']=='anger'].values
-                        fear_proportion = df_emotion['proportion'][df_emotion['Emotion']=='fear'].values
-                        surprise_proportion = df_emotion['proportion'][df_emotion['Emotion']=='surprise'].values
+                                # Liquid plot
+                                happy_proportion = df_emotion['proportion'][df_emotion['Emotion']=='happy'].values
+                                love_proportion = df_emotion['proportion'][df_emotion['Emotion']=='love'].values
+                                sadness_proportion = df_emotion['proportion'][df_emotion['Emotion']=='sadness'].values
+                                anger_proportion = df_emotion['proportion'][df_emotion['Emotion']=='anger'].values
+                                fear_proportion = df_emotion['proportion'][df_emotion['Emotion']=='fear'].values
+                                surprise_proportion = df_emotion['proportion'][df_emotion['Emotion']=='surprise'].values
 
-                        happy= liquid_plot(data=happy_proportion[0], title='Happy', liquid_color='#990000', shape=None)
-                        love= liquid_plot(data=love_proportion[0], title='Love', liquid_color='#FF0099', shape=SymbolType.ROUND_RECT)
-                        sadness= liquid_plot(data=sadness_proportion[0], title='Sadness', liquid_color='#0000FF', shape=SymbolType.RECT)
-                        anger= liquid_plot(data=anger_proportion[0], title='Anger', liquid_color='#FF0000', shape=SymbolType.DIAMOND)
-                        fear= liquid_plot(data=fear_proportion[0], title='Fear', liquid_color='#00FF00', shape=SymbolType.ARROW)
-                        surprise= liquid_plot(data=surprise_proportion[0], title='Surprise', liquid_color='#990099', shape=SymbolType.TRIANGLE)
+                                happy= liquid_plot(data=happy_proportion[0], title='Happy', liquid_color='#990000', shape=None)
+                                love= liquid_plot(data=love_proportion[0], title='Love', liquid_color='#FF0099', shape=SymbolType.ROUND_RECT)
+                                sadness= liquid_plot(data=sadness_proportion[0], title='Sadness', liquid_color='#0000FF', shape=SymbolType.RECT)
+                                anger= liquid_plot(data=anger_proportion[0], title='Anger', liquid_color='#FF0000', shape=SymbolType.DIAMOND)
+                                fear= liquid_plot(data=fear_proportion[0], title='Fear', liquid_color='#00FF00', shape=SymbolType.ARROW)
+                                surprise= liquid_plot(data=surprise_proportion[0], title='Surprise', liquid_color='#990099', shape=SymbolType.TRIANGLE)
 
-                        st.pyplot(fig)
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st_pyecharts(happy)
-                            st_pyecharts(love)
-                        with col2:
-                            st_pyecharts(sadness)
-                            st_pyecharts(anger)
-                        with col3:
-                            st_pyecharts(fear)
-                            st_pyecharts(surprise)
-                else:
-                    st.error('The early date must be earliest than the late date !')
-
-        with table_box:
-            # fig = go.Figure(data=go.Table(
-            #                     columnwidth = [1,1,1,2,2,1,3],
-            #                     header=dict(values=list(['firstname','lastname','username','date of creation','last update', 'emotion', 'text']),
-            #                     fill_color = '#ff6622',
-            #                     align='center'),
-            #                     cells=dict(values=[df_head.first_name,df_head.last_name,df_head.username,
-            #                                     df_head.dateofcreation,df_head.last_updated,df_head.emotion,df_head.text],
-            #                     fill_color="#eeeeee",
-            #                     align='left')
-            #                     ))
-            # fig.update_layout(margin=dict(l=0,r=0,t=0,b=0))
-            # st.write(fig)
-            st.header('Select the date of your post.')
-            date = st.date_input(label='Select a date')
-            st.markdown('***Your text of date {}***'.format(date))
-            if 'choose_date' not in st.session_state:
-                st.session_state['choose_date'] = False
-
-            if date or st.session_state['choose_date']:
-                st.session_state['choose_date'] = True
-                text = df['text'][pd.to_datetime(df['last_updated']).dt.date == date]
-                df_text = df[['dateofcreation', 'last_updated','text']][pd.to_datetime(df['last_updated']).dt.date == date]
-                if df_text.empty:
-                    st.subheader('No post for this date.')
-                else:
-                    AgGrid(pd.DataFrame(df_text))
+                                st.pyplot(fig)
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st_pyecharts(happy)
+                                    st_pyecharts(love)
+                                with col2:
+                                    st_pyecharts(sadness)
+                                    st_pyecharts(anger)
+                                with col3:
+                                    st_pyecharts(fear)
+                                    st_pyecharts(surprise)
+                        else:
+                            st.error('The early date must be earliest than the late date !')
 
 # #,df.last_name,df.username,df.dateofcreation,
 #df.last_updated,df.emotion,df.text
