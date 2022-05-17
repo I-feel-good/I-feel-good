@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from nltk.corpus import stopwords
 import streamlit as st
-
 """ data -> pandas series"""
 
 EMOTIONS = {'happy':0, 'sadness':1, 'anger':2, 'fear':3, 'love':4, 'surprise':5}
