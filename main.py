@@ -24,7 +24,7 @@ from pyecharts.charts import Liquid, Polar
 from pyecharts.globals import SymbolType
 
 from tensorflow import keras
-# from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.sequence import pad_sequences
 
 from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
@@ -294,7 +294,7 @@ elif (selected == 'Dashboard'):
         # We prepare data as a list of sequences.
         word_index = tokenizer.word_index
         sequences = texts_to_sequences(df_text_clean['text'], word_index)
-        padded_sequences = keras.preprocessing.sequence.pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
+        padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
 
         # Prediction
         y_pred = model.predict(padded_sequences)
@@ -383,7 +383,7 @@ elif (selected == 'Dashboard'):
         # We prepare data as a list of sequences.
         word_index = tokenizer.word_index
         sequences = texts_to_sequences(df_text_clean['text'], word_index)
-        padded_sequences = keras.preprocessing.sequence.pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
+        padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
 
         # Prediction
         y_pred = model.predict(padded_sequences)
