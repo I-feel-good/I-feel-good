@@ -202,13 +202,14 @@ elif (selected == 'Patient'):
             last_name = st.text_input('Saisir le Nom')
             username = st.text_input('Saisir le Surnom')
             password = st.text_input('Saisir le Mot de passe')
-            fonction = st.selectbox('Fonction',('Patient', 'Docteur'))
+            choix_fonction = st.selectbox('Fonction',('patient', 'docteur'))
             submit_add_patient = st.form_submit_button('Ajouter')
         
         if submit_add_patient:
-            Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=fonction).save_to_db()
+            Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=choix_fonction).save_to_db()
             st.success(f' Bienvenue  {username}')        
     elif choix_fonction == "Liste des patients":
+
         if fonction == 'patient':
             liste_des_patients = Users.get_list_by_user(st.experimental_get_query_params()['username'][0])
             df = pd.read_sql_query(
@@ -237,28 +238,27 @@ elif (selected == 'Patient'):
     
 elif (selected == 'Information'):
     st.title('Information')
-    fonction = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
+    page_informations = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
     
-    if fonction == "Ajouter une informations":
+    if page_informations == "Ajouter une informations":
         os.system('cls')
         with st.form("form2"):
             text = st.text_input('Saisir votre information')
-            if st.session_state['fonction'] == 'docteur':
+            if fonction == 'docteur':
                 options = Users.get_list_users_patient()
                 df = pd.read_sql_query(
                 sql = options,
                 con = engine
             )
-                fonction = st.selectbox('Username',(df.username.to_list()))
-            
+                username = st.selectbox('Username',(df['username'].to_list()))
             st.form_submit_button("Submit")
 
-    elif fonction == 'Liste des informations':
+    elif page_informations == 'Liste des informations':
         os.system('cls')
-        if st.session_state['fonction'] == 'docteur':
+        if fonction == 'docteur':
             query_full_informations = Informations.get_list_informations()
-        elif st.session_state['fonction'] == 'patient':
-            query_full_informations = Informations.get_list_informations_username(st.session_state['user_name'])
+        elif fonction == 'patient':
+            query_full_informations = Informations.get_list_informations_username(st.experimental_get_query_params()['username'][0])
             
         df = pd.read_sql_query(
              sql = query_full_informations,
