@@ -101,8 +101,8 @@ def check_password():
              (user.password == st.session_state["password"])#stauth.Hasher(st.session_state["password"]).generate()
            ):
             st.success("You have successfully logged in.")
-            st.experimental_set_query_params(login="logged_in", username=user.username)
             st.session_state["password_correct"] = True
+            st.experimental_set_query_params(login="logged_in", username=user.username)
             del st.session_state["password"]  # don't store password
         else:
             st.session_state["password_correct"] = False
