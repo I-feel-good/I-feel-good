@@ -39,6 +39,13 @@ The **goal** of this application is **to provide easier predictions** to the use
 - Fear
 - Surprise
 
+
+# Start the application 
+ 
+> - Import the necessary libraries => pip install requirements.txt
+> - Start application via terminal => streamlit run main.py 
+> - The application start in a new web page=> http://localhost:8501/
+
 ### Main skills:
 
 ![Python](https://img.shields.io/badge/-Python-0D1117?style=for-the-badge&logo=javascript&labelColor=0D1117&textColor=0D1117)&nbsp;
