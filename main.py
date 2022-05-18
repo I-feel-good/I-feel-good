@@ -27,6 +27,13 @@ from pyecharts.globals import SymbolType
 from tensorflow import keras
 from keras.preprocessing.sequence import pad_sequences
 
+from radar_plot import radar_factory
+import matplotlib.pyplot as plt
+from streamlit_echarts import st_pyecharts
+from pyecharts import options as opts
+from pyecharts.charts import Liquid
+from pyecharts.globals import SymbolType
+
 from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 from streamlit_lottie import st_lottie
@@ -108,7 +115,6 @@ def check_password():
             st.session_state["password_correct"] = True
             st.experimental_set_query_params(login="logged_in", username=user.username)
             del st.session_state["password"]  # don't store password
-
         else:
             st.session_state["password_correct"] = False
             
