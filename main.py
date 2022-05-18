@@ -15,7 +15,7 @@ import requests
 import plotly.express as px
 import plotly.graph_objects as go
 import pickle
-
+from datetime import date
 from dashboard_plots import liquid_plot, radar_factory
 from clean_text import clean_text, texts_to_sequences, prediction_to_emotions
 import matplotlib.pyplot as plt
@@ -124,7 +124,6 @@ def check_password():
         st.text_input("Password", type="password", on_change=password_entered, key="password")#(username, password)
         st.error("User not known or password incorrect")
         return False
-        
     else:
         # Password correct.
         return True
@@ -192,7 +191,7 @@ if selected == 'Home':
 elif (selected == 'Patient'):
     st.title('Patients')
     if fonction == 'patient':
-        choix_fonction = st.selectbox('Fonction',(['Liste des patients']))
+        choix_fonction = 'Liste des patients'
     elif fonction == 'docteur':
         choix_fonction = st.selectbox('Fonction',('Ajouter un patient', 'Liste des patients'))
 
@@ -249,10 +248,17 @@ elif (selected == 'Information'):
                 df = pd.read_sql_query(
                 sql = options,
                 con = engine
-            )
+            )   
                 username = st.selectbox('Username',(df['username'].to_list()))
-            st.form_submit_button("Submit")
-
+                
+            if fonction == 'patient':
+                username = st.experimental_get_query_params()['username'][0]
+                    
+            user_id = Users.get_list_by_user(username)
+            submit_add_informations = st.form_submit_button("Submit")
+        if submit_add_informations:
+            Informations(dateofcreation = date.today(),last_updated=date.today(),emotion="", text=text, user_id=user_id).save_to_db()
+        st.success(f' Vous avez ajouter un post {username}')     
     elif page_informations == 'Liste des informations':
         os.system('cls')
         if fonction == 'docteur':
@@ -266,8 +272,13 @@ elif (selected == 'Information'):
         )
         df, sel_row = data_grid(df)
         col1, col2= st.columns(2)
-        col1.button('Delete')
+        delete = col1.button('Delete')
         col2.button('Save')
+        
+        if delete:
+            print('------------------------------------------------------------------------------') 
+            for i in sel_row:
+                print(i)
 
 elif (selected == 'Dashboard'):
     if fonction == 'docteur':
@@ -341,13 +352,15 @@ elif (selected == 'Dashboard'):
             word_index = tokenizer.word_index
             sequences = texts_to_sequences(df_text_clean['text'], word_index)
             padded_sequences = pad_sequences(sequences, maxlen=100, padding='post', truncating='post')
-   
+            # 
             # Prediction
             if df_user.empty:
                 st.subheader('No post for this period.')
             else:
                 y_pred = model.predict(padded_sequences)
+                st.info(model)
                 df_user = df_user.reset_index(drop=True)
+                st.warning(type(model))
                 df_user['prediction'] = prediction_to_emotions(y_pred)
 
                 radar_box = st.container()
