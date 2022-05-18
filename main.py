@@ -32,7 +32,8 @@ from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 from streamlit_lottie import st_lottie
 import time
 from pprint import pprint
-
+from PIL import Image 
+from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 
 load_dotenv(override=True)
 
@@ -138,7 +139,8 @@ path_model = './ML_models/neural_lstm_kaggle_clean.h5'
 model = model_load(path_model)
 
 with st.sidebar:
-    
+    st.set_option('deprecation.showPyplotGlobalUse', False)
+
     if not bool(st.experimental_get_query_params()):
         connected = False
     elif st.experimental_get_query_params()['login'][0] == 'logged_in':
@@ -165,6 +167,8 @@ if selected == 'Home':
                      fonction du contenu que vous laissez dans votre journal. Vous pouvez ainsi \
                      suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
                      de la paix intérieure !')
+        img = Image.open("img/img6.webp") 
+        st.image(img, width=600)              
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
         res_json = load_lottieurl(url)
         st_lottie(res_json)
@@ -186,6 +190,8 @@ if selected == 'Home':
                      suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
                      de la paix intérieure !')
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
+        img = Image.open("img/img6.webp") 
+        st.image(img, width=600) 
         res_json = load_lottieurl(url)
         st_lottie(res_json)
     
@@ -198,9 +204,9 @@ elif (selected == 'Patient'):
 
     if choix_fonction == "Ajouter un patient":
         with st.form("form1"):
-            first_name = st.text_input('Saisir le prénom')
-            last_name = st.text_input('Saisir le Nom')
-            username = st.text_input('Saisir le Surnom')
+            first_name = st.text_input('Saisir le prénom', max_chars=50)
+            last_name = st.text_input('Saisir le Nom', max_chars=50)
+            username = st.text_input('Saisir le Surnom', max_chars=50)
             password = st.text_input('Saisir le Mot de passe')
             choix_fonction = st.selectbox('Fonction',('patient', 'docteur'))
             submit_add_patient = st.form_submit_button('Ajouter')
@@ -243,7 +249,9 @@ elif (selected == 'Information'):
     if page_informations == "Ajouter une informations":
         os.system('cls')
         with st.form("form2"):
-            text = st.text_input('Saisir votre information')
+            text = st.text_area('Saisir votre information', height=500)
+            img1 = Image.open("img/img5.jpg") 
+            st.image(img1, width=650) 
             if fonction == 'docteur':
                 options = Users.get_list_users_patient()
                 df = pd.read_sql_query(
@@ -398,6 +406,29 @@ elif (selected == 'Dashboard'):
                             with col3:
                                 st_pyecharts(fear)
                                 st_pyecharts(surprise)
+                            #MICHELLE 
+                            if st.checkbox("Metrics"):
+                                query_informations = Informations.get_list_informations()
+                                new_df = pd.read_sql_query(
+                                            sql = query_informations,
+                                            con = engine
+                                        )
+                                
+                                new_df["Length"] = new_df["text"].str.len()
+                                st.dataframe(new_df)
+
+                                st.subheader("Author Stats")
+                                new_df["username"].value_counts().plot.pie()
+                                st.pyplot()
+                                
+                            if st.checkbox("Word Cloud"):
+                                st.subheader("Generate Word Cloud")
+                                #text = new_df['Post'].iloc[0]
+                                text = ",".join(new_df['text'])
+                                wordcloud = WordCloud().generate(text)
+                                plt.imshow(wordcloud, interpolation="bilinear")
+                                plt.axis("off")
+                                st.pyplot()                                                      
                         else:
                             st.error('The early date must be earliest than the late date !')
 
@@ -520,6 +551,7 @@ elif (selected == 'Dashboard'):
                                 with col3:
                                     st_pyecharts(fear)
                                     st_pyecharts(surprise)
+                                 
                         else:
                             st.error('The early date must be earliest than the late date !')
 
