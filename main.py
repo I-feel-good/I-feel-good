@@ -27,12 +27,20 @@ from pyecharts.globals import SymbolType
 from tensorflow import keras
 from keras.preprocessing.sequence import pad_sequences
 
+from radar_plot import radar_factory
+import matplotlib.pyplot as plt
+from streamlit_echarts import st_pyecharts
+from pyecharts import options as opts
+from pyecharts.charts import Liquid
+from pyecharts.globals import SymbolType
+
 from st_aggrid.grid_options_builder import GridOptionsBuilder
 from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 from streamlit_lottie import st_lottie
 import time
 from pprint import pprint
-
+from PIL import Image 
+from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 
 load_dotenv(override=True)
 
@@ -107,7 +115,6 @@ def check_password():
             st.session_state["password_correct"] = True
             st.experimental_set_query_params(login="logged_in", username=user.username)
             del st.session_state["password"]  # don't store password
-
         else:
             st.session_state["password_correct"] = False
             
@@ -137,7 +144,8 @@ path_model = './ML_models/neural_lstm_kaggle_clean.h5'
 model = model_load(path_model)
 
 with st.sidebar:
-    
+    st.set_option('deprecation.showPyplotGlobalUse', False)
+
     if not bool(st.experimental_get_query_params()):
         connected = False
     elif st.experimental_get_query_params()['login'][0] == 'logged_in':
@@ -164,6 +172,8 @@ if selected == 'Home':
                      fonction du contenu que vous laissez dans votre journal. Vous pouvez ainsi \
                      suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
                      de la paix intérieure !')
+        img = Image.open("img/img6.webp") 
+        st.image(img, width=600)              
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
         res_json = load_lottieurl(url)
         st_lottie(res_json)
@@ -185,6 +195,8 @@ if selected == 'Home':
                      suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
                      de la paix intérieure !')
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
+        img = Image.open("img/img6.webp") 
+        st.image(img, width=600) 
         res_json = load_lottieurl(url)
         st_lottie(res_json)
     
@@ -197,9 +209,9 @@ elif (selected == 'Patient'):
 
     if choix_fonction == "Ajouter un patient":
         with st.form("form1"):
-            first_name = st.text_input('Saisir le prénom')
-            last_name = st.text_input('Saisir le Nom')
-            username = st.text_input('Saisir le Surnom')
+            first_name = st.text_input('Saisir le prénom', max_chars=50)
+            last_name = st.text_input('Saisir le Nom', max_chars=50)
+            username = st.text_input('Saisir le Surnom', max_chars=50)
             password = st.text_input('Saisir le Mot de passe')
             choix_fonction = st.selectbox('Fonction',('patient', 'docteur'))
             submit_add_patient = st.form_submit_button('Ajouter')
@@ -242,7 +254,9 @@ elif (selected == 'Information'):
     if page_informations == "Ajouter une informations":
         os.system('cls')
         with st.form("form2"):
-            text = st.text_input('Saisir votre information')
+            text = st.text_area('Saisir votre information', height=500)
+            img1 = Image.open("img/img5.jpg") 
+            st.image(img1, width=650) 
             if fonction == 'docteur':
                 options = Users.get_list_users_patient()
                 df = pd.read_sql_query(
@@ -294,7 +308,6 @@ elif (selected == 'Dashboard'):
         list_of_patients = np.append(list_of_patients, 'All patients')
 
         patient_selected = st.selectbox(label='Choose a patient', options=list_of_patients)
-
         if patient_selected != 'All patients':
             list_of_patients = np.delete(list_of_patients, -1)
             user_name = df['username'][list_of_patients == patient_selected].unique()
@@ -305,7 +318,7 @@ elif (selected == 'Dashboard'):
                 sql = query_full_informations_user,
                 con = engine
             )
-
+            
             radio = st.radio(label='Choose a filter', options=['Custom', 'Year', 'Month', 'Day'])
             list_years = sorted(df_user['last_updated'].dt.year.unique())
             list_months = sorted(df_user['last_updated'].dt.month.unique())
@@ -313,7 +326,7 @@ elif (selected == 'Dashboard'):
             last_update = pd.to_datetime(df_user['last_updated']).dt.date
             early_date = datetime.now().date()
             late_date = early_date
-
+            
             if radio == 'Year':
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
                 date_choice = datetime.strptime(str(year_choice), '%Y').date()
@@ -322,7 +335,7 @@ elif (selected == 'Dashboard'):
 
             elif radio == 'Month': 
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
-                month_choice = st.selectbox(label='Choose a year', options=list_months)
+                month_choice = st.selectbox(label='Choose a month', options=list_months)
                 date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
                 if month_choice != 12:
                     date_choice_next = datetime.strptime(str(year_choice) + '-' + str(month_choice+1), '%Y-%m').date()
@@ -352,7 +365,7 @@ elif (selected == 'Dashboard'):
             word_index = tokenizer.word_index
             sequences = texts_to_sequences(df_text_clean['text'], word_index)
             padded_sequences = pad_sequences(sequences, maxlen=100, padding='post', truncating='post')
-            # 
+
             # Prediction
             if df_user.empty:
                 st.subheader('No post for this period.')
@@ -362,7 +375,6 @@ elif (selected == 'Dashboard'):
                 df_user = df_user.reset_index(drop=True)
                 st.warning(type(model))
                 df_user['prediction'] = prediction_to_emotions(y_pred)
-
                 radar_box = st.container()
                 with radar_box:
                     df_emotion = pd.DataFrame(df_user['prediction'].value_counts()).reset_index() \
@@ -411,6 +423,29 @@ elif (selected == 'Dashboard'):
                             with col3:
                                 st_pyecharts(fear)
                                 st_pyecharts(surprise)
+                            #MICHELLE 
+                            if st.checkbox("Metrics"):
+                                query_informations = Informations.get_list_informations()
+                                new_df = pd.read_sql_query(
+                                            sql = query_informations,
+                                            con = engine
+                                        )
+                                
+                                new_df["Length"] = new_df["text"].str.len()
+                                st.dataframe(new_df)
+
+                                st.subheader("Author Stats")
+                                new_df["username"].value_counts().plot.pie()
+                                st.pyplot()
+                                
+                            if st.checkbox("Word Cloud"):
+                                st.subheader("Generate Word Cloud")
+                                #text = new_df['Post'].iloc[0]
+                                text = ",".join(new_df['text'])
+                                wordcloud = WordCloud().generate(text)
+                                plt.imshow(wordcloud, interpolation="bilinear")
+                                plt.axis("off")
+                                st.pyplot()                                                      
                         else:
                             st.error('The early date must be earliest than the late date !')
 
@@ -442,10 +477,9 @@ elif (selected == 'Dashboard'):
                 date_choice = datetime.strptime(str(year_choice), '%Y').date()
                 date_choice_next = datetime.strptime(str(year_choice+1), '%Y').date()
                 df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
-
             elif radio == 'Month': 
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
-                month_choice = st.selectbox(label='Choose a year', options=list_months)
+                month_choice = st.selectbox(label='Choose a month', options=list_months)
                 date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
                 if month_choice != 12:
                     date_choice_next = datetime.strptime(str(year_choice) + '-' + str(month_choice+1), '%Y-%m').date()
@@ -467,12 +501,15 @@ elif (selected == 'Dashboard'):
                     df_user = df_user.loc[(last_update >= early_date) & (last_update <= late_date)]
             # Cleaning data
             df_text_clean = clean_text(df_user['text'])
+            # st.info(df_user['last_updated'].loc[df_user['last_updated'] == datetime.strptime('2021-03-21', '%Y-%m-%d').date()])
+            st.write(df_user['text'])
 
             # We prepare data as a list of sequences.
             word_index = tokenizer.word_index
             sequences = texts_to_sequences(df_text_clean['text'], word_index)
             padded_sequences = pad_sequences(sequences,maxlen=100, padding='post', truncating='post')
-
+            st.write(type(df_text_clean['text'].tolist()[0]))
+            st.write(df_user.columns)
             if df_user.empty:
                 st.subheader('No post for this period.')
             else:
@@ -533,6 +570,7 @@ elif (selected == 'Dashboard'):
                                 with col3:
                                     st_pyecharts(fear)
                                     st_pyecharts(surprise)
+                                 
                         else:
                             st.error('The early date must be earliest than the late date !')
 
