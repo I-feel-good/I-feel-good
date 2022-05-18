@@ -228,9 +228,6 @@ elif (selected == 'Patient'):
                 con = engine
             )
             df, sel_row = data_grid(df)
-            col1, col2= st.columns(2)
-            col1.button('Delete')
-            col2.button('Save')
             st.write(sel_row)
             # pass get_list_by_user""
 
@@ -243,10 +240,19 @@ elif (selected == 'Patient'):
             )
             df, sel_row = data_grid(df)
             col1, col2= st.columns(2)
-            col1.button('Delete')
-            col2.button('Save')
+            delete = col1.button('Delete')
+            save = col2.button('Save')
             st.write(sel_row)
-    
+            if delete:
+                print('------------------------------------------------------------------------------') 
+                for i in sel_row:
+                    user = db.query(Users).filter(Users.id_user == i["id_user"]).one()
+                    db.delete(user)
+                    db.commit()
+            if save:
+                for i in sel_row:
+                    user = db.query(Users).filter(Users.id_user == i["id_user"]).update({"first_name":i["first_name"], "last_name":i["last_name"], "username":i["username"]})
+                    db.commit()
 elif (selected == 'Information'):
     st.title('Information')
     page_informations = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
@@ -287,13 +293,19 @@ elif (selected == 'Information'):
         df, sel_row = data_grid(df)
         col1, col2= st.columns(2)
         delete = col1.button('Delete')
-        col2.button('Save')
-        
+        save =col2.button('Save')
+        st.write(sel_row)
+        if save:
+            for i in sel_row:
+                post = db.query(Informations).filter(Informations.id_informations == i["id_informations"]).update({"dateofcreation":i["dateofcreation"], "last_updated":date.today(), "emotion":i["emotion"], "text":i["text"]})
+                db.commit()
         if delete:
             print('------------------------------------------------------------------------------') 
             for i in sel_row:
-                print(i)
-
+                post = db.query(Informations).filter(Informations.id_informations == i["id_informations"]).one()
+                db.delete(post)
+                db.commit()
+            
 elif (selected == 'Dashboard'):
     if fonction == 'docteur':
         query_informations = Users.get_list_users_patient()
@@ -371,9 +383,9 @@ elif (selected == 'Dashboard'):
                 st.subheader('No post for this period.')
             else:
                 y_pred = model.predict(padded_sequences)
-                st.info(model)
+                # st.info(model)
                 df_user = df_user.reset_index(drop=True)
-                st.warning(type(model))
+                # st.warning(type(model))
                 df_user['prediction'] = prediction_to_emotions(y_pred)
                 radar_box = st.container()
                 with radar_box:
