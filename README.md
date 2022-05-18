@@ -2,7 +2,7 @@
 
 # What is it?
 This repository contains :
-- a **[machine learning model](#the-model)**, trained to predict the category of texts from the diaries of the patients of coach Mr. Zen, our client.
+- a **[machine learning model](#the-model)**, trained to predict the emotional category of texts from the diaries of the patients of coach Mr. Zen, our client.
 - an **[app](#the-application)** (streamlit) who serves as a graphical interface for the model, and it's an application dedicated to Mr Zen's patients
 
 
@@ -16,22 +16,22 @@ Keras is:
 > - Flexible -- Keras adopts the principle of progressive disclosure of complexity: simple workflows should be quick and easy, while arbitrarily advanced workflows should be possible via a clear path that builds upon what you've already learned.
 > - Powerful -- Keras provides industry-strength performance and scalability: it is used by organizations and companies including NASA, YouTube, and Waymo.
 
+We are using the vector representation of words of **GloVe** unsupervised pre-trained machine learning model available freely on the internet in .txt file. It allows us to significally increase our prediction performance.
+
+The model architecture is based on LSTM (Long Short Term Memory) layers which is an improvement of classical Reccurent Neural Networks (RNN). It allows us to get rid of the Vanish Gradient problem which occurs in long enough textual data.
 
 We also tried other models that we ended up not using, such as:
 - TextHero and FastText
 - Scikit-learn
 
 ## Features
-The model needs **6** parameters in order to make a prediction:
-- 
-- 
-- 
+The model needs texts of patients which must be cleaned and tokenized in order to make predictions. It predicts the emotional main character of texts distributed in 6 categories: happy, sadness, love, anger, fear and surprise.
 
 
 # The application
 The application was made using **streamlit** in order to have a simple but good result while **saving development time**.
 
-The **goal** of this application is **to provide easier predictions** to the user, M.Zen. which predicts whether the writings of Mr. Zen's patients fall into the following categories :
+The **goal** of this application is **to provide easier predictions** to the user, Mr Zen which predicts whether the writings of Mr Zen's patients fall into the following categories :
 - Happy 
 - Sadness
 - Love 
@@ -41,8 +41,6 @@ The **goal** of this application is **to provide easier predictions** to the use
 
 ### Main skills:
 
-![HTML](https://img.shields.io/badge/-HTML-0D1117?style=for-the-badge&logo=html5&labelColor=0D1117)&nbsp;
-![CSS](https://img.shields.io/badge/-CSS-0D1117?style=for-the-badge&logo=CSS3&logoColor=1572B6&labelColor=0D1117)&nbsp;
 ![Python](https://img.shields.io/badge/-Python-0D1117?style=for-the-badge&logo=javascript&labelColor=0D1117&textColor=0D1117)&nbsp;
 
 ### Tools:
