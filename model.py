@@ -33,6 +33,17 @@ class Users(Base):
     username = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     fonction = Column(String, nullable=False)
+    
+    
+    # def __init__(self, first_name, last_name, username, password, fonction):
+    #     self.first_name = first_name
+    #     self.last_name = last_name
+    #     self.username = username
+    #     self.password = password
+    #     self.fonction = fonction
+        
+    # def __repr__(self):
+    #     return " l'utilisateur est {} ".format(self.username)
 
     
     def save_to_db(self):
@@ -84,6 +95,7 @@ class Users(Base):
         return user
 
     
+    
 class Informations(Base):
     lg.info('Class Informations')
     __tablename__ = 'informations'
@@ -94,6 +106,17 @@ class Informations(Base):
     text = Column(String)
     user_id = Column(Integer, ForeignKey('users.id_user'))
     
+    # def __init__(self,id_informations, dateofcreation, last_updated, emotion, text, user_id):
+    #     self.id_informations = id_informations
+    #     self.dateofcreation = dateofcreation
+    #     self.last_updated = last_updated
+    #     self.emotion = emotion
+    #     self.text = text
+    #     self.user_id = user_id
+        
+    # def __repr__(self):
+    #     return "L'infomration est".format(self.dateofcreation)
+    
     def save_to_db(self):
         lg.info('Class Informations save')
         db.add(self)
@@ -103,15 +126,27 @@ class Informations(Base):
         lg.info('Class Informations delete')
         db.delete(self)
         db.commit()
+        
+    # def supprimer_to_db(self, id):
+    #     db.query().filter(Informations.id_informations == i["id_informations"]).one()
+    #     db
 
     @classmethod
+    def get_list_une_informations(cls,id):
+        lg.info('get_list_une_informations :{} '.format(id))
+        full_list = db.query(cls).where(cls.id_informations==id).all()
+        print(full_list)
+        return full_list
+    
 
+    @classmethod
     def get_list_informations(cls):
         lg.info('get_list_informations : {Informations.id_informations}, {Informations.dateofcreation}')
         # full_list = db.query(Users, Informations).join(Informations).first()
         full_list = sqlalchemy.select([Users.first_name,
                                        Users.last_name,
                                        Users.username,
+                                       Informations.id_informations,
                                        Informations.dateofcreation,
                                        Informations.last_updated, 
                                        Informations.emotion,
@@ -123,7 +158,7 @@ class Informations(Base):
     @classmethod
     def get_list_informations_username(cls, username):
         lg.info(f'get_list_informations : {username}')
-        full_list = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username, Users.fonction, 
+        full_list = sqlalchemy.select([Users.id_user, Users.first_name, Users.last_name, Users.username, Users.fonction, Informations.id_informations,
                                            Informations.dateofcreation,Informations.last_updated, Informations.emotion, Informations.text, 
                                            ]).where(Users.id_user == Informations.user_id, Users.username==username)
         return full_list
@@ -131,22 +166,26 @@ class Informations(Base):
 
     @classmethod
     def get_list_informations_by_users(cls, user):
-        # full_list = sqlalchemy.select([Users.first_name,Users.last_name,Users.username,Users.id_user]).join(
-        #                                [Informations.dateofcreation,
-        #                                Informations.last_updated, 
-        #                                Informations.emotion,
-        #                                Informations.text,
-        #                                Informations.user_id
-        #                                ], Informations.user_id == Users.id_user).filter_by(username=user.username)
         full_list = sqlalchemy.select([Users.first_name,
                                        Users.last_name,
-                                       Users.username,
+                                       Users.username,Informations.id_informations,
                                        Informations.dateofcreation,
                                        Informations.last_updated, 
                                        Informations.emotion,
                                        Informations.text
                                      ]).filter_by(username=user.username).join(Informations)
-        return full_list    
+        return full_list
+
+    @classmethod
+    def get_list_informations_by_id(cls, id):
+        informations = sqlalchemy.select([Informations.id_informations,
+                                       Informations.dateofcreation,
+                                       Informations.last_updated, 
+                                       Informations.emotion,
+                                       Informations.text,
+                                       Informations.user_id
+                                     ]).where(Informations.id_informations==id)
+        return informations   
         
 # Function to create db and populate it
 def init_db():

@@ -4,12 +4,12 @@ __pycache__/
 *$py.class
 Sklearn.ipynb
 emotions_keras_micka.ipynb
-Notebook/
+
 michelle/
 streamlit_michelle100522/
 streamlit_michelle_groupe120522/
 mlruns/
-notebook/
+
 data/
 results/
 .env
