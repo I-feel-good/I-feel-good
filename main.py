@@ -39,8 +39,8 @@ from st_aggrid import AgGrid, DataReturnMode, GridUpdateMode, GridOptionsBuilder
 from streamlit_lottie import st_lottie
 import time
 from pprint import pprint
-from PIL import Image
-from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+from PIL import Image 
+# from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 
 load_dotenv(override=True)
 
@@ -63,15 +63,6 @@ hide_menu_style = """
 
 st.markdown(hide_menu_style, unsafe_allow_html=True)
 
-
-# We load the original tokenizer used during training :
-def tokenizer_load(path):
-    with open(path, 'rb') as file:
-        return pickle.load(file)
-
-def model_load(path):
-    with open(path, 'rb') as file:
-        return keras.models.load_model(path)
 
 def load_lottieurl(url: str):
     r = requests.get(url)
@@ -136,12 +127,21 @@ def check_password():
         return True
 
 # We load the pre-trained tokenizer
-path_tokenizer = './ML_models/tokenizer.pkl'
-tokenizer = tokenizer_load(path_tokenizer)
+if "tokenizer_load" not in globals():
+    def tokenizer_load(path):
+        with open(path, 'rb') as file:
+            return pickle.load(file)
+    path_tokenizer = './ML_models/tokenizer.pkl'
+    tokenizer = tokenizer_load(path_tokenizer)
 
 # We load the pre-trained model
-path_model = './ML_models/neural_lstm_kaggle_clean.h5'
-model = model_load(path_model)
+if "model_load" not in globals():
+    # We load the original tokenizer used during training :
+    def model_load(path):
+        with open(path, 'rb') as file:
+            return keras.models.load_model(path)
+    path_model = './ML_models/neural_lstm_kaggle_clean.h5'
+    model = model_load(path_model)
 
 with st.sidebar:
     st.set_option('deprecation.showPyplotGlobalUse', False)
@@ -252,7 +252,10 @@ elif (selected == 'Patient'):
                 st.experimental_rerun()
             if save:
                 for i in sel_row:
-                    user = db.query(Users).filter(Users.id_user == i["id_user"]).update({"first_name":i["first_name"], "last_name":i["last_name"], "username":i["username"]})
+                    user = db.query(Users).filter(Users.id_user == i["id_user"]) \
+                                          .update({"first_name":i["first_name"],
+                                                   "last_name":i["last_name"],
+                                                   "username":i["username"]})
                     db.commit()
                 st.experimental_rerun()
 elif (selected == 'Information'):
@@ -391,6 +394,7 @@ elif (selected == 'Dashboard'):
                 # st.warning(type(model))
                 df_user['prediction'] = prediction_to_emotions(y_pred)
                 radar_box = st.container()
+                michelle_box = st.container()
                 with radar_box:
                     df_emotion = pd.DataFrame(df_user['prediction'].value_counts()).reset_index() \
                                                 .rename(columns={'index':'Emotion','prediction':'proportion'})
@@ -438,33 +442,35 @@ elif (selected == 'Dashboard'):
                             with col3:
                                 st_pyecharts(fear)
                                 st_pyecharts(surprise)
-                            #MICHELLE
-                            if st.checkbox("Metrics"):
-                                query_informations = Informations.get_list_informations()
-                                new_df = pd.read_sql_query(
-                                            sql = query_informations,
-                                            con = engine
-                                        )
-
-                                new_df["Length"] = new_df["text"].str.len()
-                                st.dataframe(new_df)
-
-                                st.subheader("Author Stats")
-                                new_df["username"].value_counts().plot.pie()
-                                st.pyplot()
-
-                            if st.checkbox("Word Cloud"):
-                                st.subheader("Generate Word Cloud")
-                                #text = new_df['Post'].iloc[0]
-                                text = ",".join(new_df['text'])
-                                wordcloud = WordCloud().generate(text)
-                                plt.imshow(wordcloud, interpolation="bilinear")
-                                plt.axis("off")
-                                st.pyplot()
+                                                  
                         else:
                             st.error('The early date must be earliest than the late date !')
+                with michelle_box:
+                        #MICHELLE
+                        query_informations = Informations.get_list_informations()
+                        new_df = pd.read_sql_query(
+                                    sql = query_informations,
+                                    con = engine
+                                )
+                        if st.checkbox("Metrics"):
+                            
+                            new_df["Length"] = new_df["text"].str.len()
+                            st.dataframe(new_df)
 
-
+                            st.subheader("Author Stats")
+                            user_count = new_df["username"].value_counts().reset_index()
+                            fig, ax = plt.subplots()
+                            ax.pie(user_count["username"],labels=user_count["index"])
+                            st.pyplot(fig)
+                            
+                        if st.checkbox("Word Cloud"):
+                            st.subheader("Generate Word Cloud")
+                        #     text = new_df['Post'].iloc[0]
+                        #     text = ",".join(new_df['text'])
+                        #     wordcloud = WordCloud().generate(text)
+                        #     plt.imshow(wordcloud, interpolation="bilinear")
+                        #     plt.axis("off")
+                        #     st.pyplot()    
     elif fonction == 'patient':
 
 
