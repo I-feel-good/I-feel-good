@@ -69,7 +69,7 @@ def load_lottieurl(url: str):
     if r.status_code !=200:
         return None
     return r.json()
-    
+
 def data_grid(df):
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_pagination(enabled=True)
@@ -77,7 +77,7 @@ def data_grid(df):
     gb.configure_default_column(editable=True,groupable=True, value=True, enableRowGroup=True)
     gb.configure_selection(selection_mode='multiple', use_checkbox=True, groupSelectsChildren=True)
     gridOptions = gb.build()
-    grid_response = AgGrid(df, 
+    grid_response = AgGrid(df,
                     gridOptions=gridOptions,
                     enable_enterprise_modules=True,
                     fit_columns_on_grid_load= False,
@@ -108,7 +108,7 @@ def check_password():
             del st.session_state["password"]  # don't store password
         else:
             st.session_state["password_correct"] = False
-            
+
 
     if "password_correct" not in st.session_state:
         # First run, show inputs for username + password.
@@ -154,7 +154,7 @@ with st.sidebar:
     else:
         connected = False
 
-    
+
     if (connected) and fonction == 'docteur':
         lg.warning('Connection : {}'.format("connected as a doctor"))
         selected =  option_menu("Main Menu", ["Home", "Patient", "Information", "Dashboard", 'Logout'], icons=['house', 'file-earmark-person', 'card-text','graph-up','door-open'], menu_icon="cast", default_index=1)
@@ -172,8 +172,8 @@ if selected == 'Home':
                      fonction du contenu que vous laissez dans votre journal. Vous pouvez ainsi \
                      suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
                      de la paix intérieure !')
-        img = Image.open("img/img6.webp") 
-        st.image(img, width=600)              
+        img = Image.open("img/img6.webp")
+        st.image(img, width=600)
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
         res_json = load_lottieurl(url)
         st_lottie(res_json)
@@ -195,11 +195,11 @@ if selected == 'Home':
                      suivre votre évolution et vérifier que vous êtes sur la voie du bonheur et \
                      de la paix intérieure !')
         url = 'https://assets8.lottiefiles.com/packages/lf20_bkwin39r.json'
-        img = Image.open("img/img6.webp") 
-        st.image(img, width=600) 
+        img = Image.open("img/img6.webp")
+        st.image(img, width=600)
         res_json = load_lottieurl(url)
         st_lottie(res_json)
-    
+
 elif (selected == 'Patient'):
     st.title('Patients')
     if fonction == 'patient':
@@ -215,10 +215,10 @@ elif (selected == 'Patient'):
             password = st.text_input('Saisir le Mot de passe')
             choix_fonction = st.selectbox('Fonction',('patient', 'docteur'))
             submit_add_patient = st.form_submit_button('Ajouter')
-        
+
         if submit_add_patient:
             Users(first_name = first_name,last_name=last_name,username=username, password=password, fonction=choix_fonction).save_to_db()
-            st.success(f' Bienvenue  {username}')        
+            st.success(f' Bienvenue  {username}')
     elif choix_fonction == "Liste des patients":
 
         if fonction == 'patient':
@@ -244,11 +244,12 @@ elif (selected == 'Patient'):
             save = col2.button('Save')
             st.write(sel_row)
             if delete:
-                print('------------------------------------------------------------------------------') 
+                print('------------------------------------------------------------------------------')
                 for i in sel_row:
                     user = db.query(Users).filter(Users.id_user == i["id_user"]).one()
                     db.delete(user)
                     db.commit()
+                st.experimental_rerun()
             if save:
                 for i in sel_row:
                     user = db.query(Users).filter(Users.id_user == i["id_user"]) \
@@ -256,39 +257,40 @@ elif (selected == 'Patient'):
                                                    "last_name":i["last_name"],
                                                    "username":i["username"]})
                     db.commit()
+                st.experimental_rerun()
 elif (selected == 'Information'):
     st.title('Information')
     page_informations = st.selectbox('Fonction',('Ajouter une informations', 'Liste des informations'))
-    
+
     if page_informations == "Ajouter une informations":
         os.system('cls')
         with st.form("form2"):
             text = st.text_area('Saisir votre information', height=500)
-            img1 = Image.open("img/img5.jpg") 
-            st.image(img1, width=650) 
+            img1 = Image.open("img/img5.jpg")
+            st.image(img1, width=650)
             if fonction == 'docteur':
                 options = Users.get_list_users_patient()
                 df = pd.read_sql_query(
                 sql = options,
                 con = engine
-            )   
+            )
                 username = st.selectbox('Username',(df['username'].to_list()))
-                
+
             if fonction == 'patient':
                 username = st.experimental_get_query_params()['username'][0]
-                    
+
             user_id = Users.get_list_by_user(username)
             submit_add_informations = st.form_submit_button("Submit")
         if submit_add_informations:
             Informations(dateofcreation = date.today(),last_updated=date.today(),emotion="", text=text, user_id=user_id).save_to_db()
-        st.success(f' Vous avez ajouter un post {username}')     
+        st.success(f' Vous avez ajouter un post {username}')
     elif page_informations == 'Liste des informations':
         os.system('cls')
         if fonction == 'docteur':
             query_full_informations = Informations.get_list_informations()
         elif fonction == 'patient':
             query_full_informations = Informations.get_list_informations_username(st.experimental_get_query_params()['username'][0])
-            
+
         df = pd.read_sql_query(
              sql = query_full_informations,
              con = engine
@@ -296,19 +298,20 @@ elif (selected == 'Information'):
         df, sel_row = data_grid(df)
         col1, col2= st.columns(2)
         delete = col1.button('Delete')
-        save =col2.button('Save')
+        save = col2.button('Save')
         st.write(sel_row)
         if save:
             for i in sel_row:
                 post = db.query(Informations).filter(Informations.id_informations == i["id_informations"]).update({"dateofcreation":i["dateofcreation"], "last_updated":date.today(), "emotion":i["emotion"], "text":i["text"]})
                 db.commit()
+            st.experimental_rerun()
         if delete:
-            print('------------------------------------------------------------------------------') 
+            print('------------------------------------------------------------------------------')
             for i in sel_row:
                 post = db.query(Informations).filter(Informations.id_informations == i["id_informations"]).one()
                 db.delete(post)
                 db.commit()
-        st.experimental_rerun()
+            st.experimental_rerun()
 elif (selected == 'Dashboard'):
     if fonction == 'docteur':
         query_informations = Users.get_list_users_patient()
@@ -326,14 +329,14 @@ elif (selected == 'Dashboard'):
         if patient_selected != 'All patients':
             list_of_patients = np.delete(list_of_patients, -1)
             user_name = df['username'][list_of_patients == patient_selected].unique()
-            
+
             user = Users.get_user(user_name[0])
             query_full_informations_user = Informations.get_list_informations_by_users(user)
             df_user = pd.read_sql_query(
                 sql = query_full_informations_user,
                 con = engine
             )
-            
+
             radio = st.radio(label='Choose a filter', options=['Custom', 'Year', 'Month', 'Day'])
             list_years = sorted(df_user['last_updated'].dt.year.unique())
             list_months = sorted(df_user['last_updated'].dt.month.unique())
@@ -341,14 +344,14 @@ elif (selected == 'Dashboard'):
             last_update = pd.to_datetime(df_user['last_updated']).dt.date
             early_date = datetime.now().date()
             late_date = early_date
-            
+
             if radio == 'Year':
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
                 date_choice = datetime.strptime(str(year_choice), '%Y').date()
                 date_choice_next = datetime.strptime(str(year_choice+1), '%Y').date()
                 df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
 
-            elif radio == 'Month': 
+            elif radio == 'Month':
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
                 month_choice = st.selectbox(label='Choose a month', options=list_months)
                 date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
@@ -371,8 +374,8 @@ elif (selected == 'Dashboard'):
                     df_user = df_user.loc[(last_updated_datetime == early_date)]
                 else:
                     df_user = df_user.loc[(last_updated_datetime >= early_date) & (last_updated_datetime <= late_date)]
-            
-            
+
+
             # Cleaning data
             df_text_clean = clean_text(df_user['text'])
 
@@ -495,7 +498,7 @@ elif (selected == 'Dashboard'):
                 date_choice = datetime.strptime(str(year_choice), '%Y').date()
                 date_choice_next = datetime.strptime(str(year_choice+1), '%Y').date()
                 df_user = df_user.loc[(last_update >= date_choice) & ((last_update < date_choice_next))]
-            elif radio == 'Month': 
+            elif radio == 'Month':
                 year_choice = st.selectbox(label='Choose a year', options=list_years)
                 month_choice = st.selectbox(label='Choose a month', options=list_months)
                 date_choice = datetime.strptime(str(year_choice) + '-' + str(month_choice), '%Y-%m').date()
@@ -537,7 +540,7 @@ elif (selected == 'Dashboard'):
                 df_user['prediction'] = prediction_to_emotions(y_pred)
 
                 with radar_box:
-                
+
                     df_emotion = pd.DataFrame(df_user['prediction'].value_counts()).reset_index() \
                                                 .rename(columns={'index':'Emotion','prediction':'proportion'})
                     df_emotion['proportion'] /= df_emotion['proportion'].sum()
@@ -588,18 +591,18 @@ elif (selected == 'Dashboard'):
                                 with col3:
                                     st_pyecharts(fear)
                                     st_pyecharts(surprise)
-                                 
+
                         else:
                             st.error('The early date must be earliest than the late date !')
 
 # #,df.last_name,df.username,df.dateofcreation,
 #df.last_updated,df.emotion,df.text
- 
-elif (selected == 'Sign-in'):# & (connected==False):  
+
+elif (selected == 'Sign-in'):# & (connected==False):
     st.title("Login")
     if check_password():
         pass
-    
+
 elif (selected == 'Sign-up'):# & (connected==False):
     st.title("Sign up")
     last_name = st.text_input('Last name')
